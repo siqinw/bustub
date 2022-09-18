@@ -78,7 +78,7 @@ TEST(StarterTest, TrieNodeRemoveTest) {
   EXPECT_EQ(child_node, nullptr);
 }
 
-TEST(StarterTest, DISABLED_TrieInsertTest) {
+TEST(StarterTest, TrieInsertTest) {
   {
     Trie trie;
     trie.Insert<std::string>("abc", "d");
