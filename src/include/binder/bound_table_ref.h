@@ -5,17 +5,20 @@
 
 #include "fmt/format.h"
 
+#include "common/macros.h"
+
 namespace bustub {
 
 /**
  * Table reference types.
  */
 enum class TableReferenceType : uint8_t {
-  INVALID = 0,       /**< Invalid table reference type. */
-  BASE_TABLE = 1,    /**< Base table reference. */
-  JOIN = 3,          /**< Output of join. */
-  CROSS_PRODUCT = 4, /**< Output of cartesian product. */
-  EMPTY = 8          /**< Placeholder for empty FROM. */
+  INVALID = 0,         /**< Invalid table reference type. */
+  BASE_TABLE = 1,      /**< Base table reference. */
+  JOIN = 3,            /**< Output of join. */
+  CROSS_PRODUCT = 4,   /**< Output of cartesian product. */
+  EXPRESSION_LIST = 5, /**< Values clause. */
+  EMPTY = 8            /**< Placeholder for empty FROM. */
 };
 
 /**
@@ -30,12 +33,12 @@ class BoundTableRef {
   virtual auto ToString() const -> std::string {
     switch (type_) {
       case TableReferenceType::INVALID:
-        return "<invalid>";
+        return "";
       case TableReferenceType::EMPTY:
         return "<empty>";
       default:
         // For other types of table reference, `ToString` should be derived in child classes.
-        BUSTUB_ASSERT(false, "entered unreachable code");
+        UNREACHABLE("entered unreachable code");
     }
   }
 
@@ -85,6 +88,9 @@ struct fmt::formatter<bustub::TableReferenceType> : formatter<string_view> {
         break;
       case bustub::TableReferenceType::EMPTY:
         name = "Empty";
+        break;
+      case bustub::TableReferenceType::EXPRESSION_LIST:
+        name = "ExpressionList";
         break;
       default:
         name = "Unknown";

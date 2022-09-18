@@ -12,6 +12,7 @@
 
 #include "buffer/buffer_pool_manager_instance.h"
 
+#include "common/exception.h"
 #include "common/macros.h"
 
 namespace bustub {
@@ -28,6 +29,11 @@ BufferPoolManagerInstance::BufferPoolManagerInstance(size_t pool_size, DiskManag
   for (size_t i = 0; i < pool_size_; ++i) {
     free_list_.emplace_back(static_cast<int>(i));
   }
+
+  // TODO(students): remove this line after you have implemented the buffer pool manager
+  throw NotImplementedException(
+      "BufferPoolManager is not implemented yet. If you have finished implementing BPM, please remove the throw "
+      "exception line in `buffer_pool_manager_instance.cpp`.");
 }
 
 BufferPoolManagerInstance::~BufferPoolManagerInstance() {
@@ -36,17 +42,17 @@ BufferPoolManagerInstance::~BufferPoolManagerInstance() {
   delete replacer_;
 }
 
-auto BufferPoolManagerInstance::FlushPgImp(page_id_t page_id) -> bool { return false; }
-
-void BufferPoolManagerInstance::FlushAllPgsImp() {}
-
 auto BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) -> Page * { return nullptr; }
 
 auto BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) -> Page * { return nullptr; }
 
-auto BufferPoolManagerInstance::DeletePgImp(page_id_t page_id) -> bool { return false; }
-
 auto BufferPoolManagerInstance::UnpinPgImp(page_id_t page_id, bool is_dirty) -> bool { return false; }
+
+auto BufferPoolManagerInstance::FlushPgImp(page_id_t page_id) -> bool { return false; }
+
+void BufferPoolManagerInstance::FlushAllPgsImp() {}
+
+auto BufferPoolManagerInstance::DeletePgImp(page_id_t page_id) -> bool { return false; }
 
 auto BufferPoolManagerInstance::AllocatePage() -> page_id_t { return next_page_id_++; }
 

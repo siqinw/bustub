@@ -20,13 +20,14 @@ namespace bustub {
 /**
  * @brief Bind a query using the schema below:
  *
- * * `CREATE TABLE y (x INT, z INT, a INT, b INT, c INT)`
- * * `CREATE TABLE a (x INT, y INT)`
- * * `CREATE TABLE b (x INT, y INT)`
+ * - `CREATE TABLE y (x INT, z INT, a INT, b INT, c INT)`
+ * - `CREATE TABLE a (x INT, y INT)`
+ * - `CREATE TABLE b (x INT, y INT)`
+ * - `CREATE TABLE c (x VARCHAR(100), y VARCHAR(100))
  */
 auto TryBind(const std::string &query) {
-  bustub::Binder binder;
   bustub::Catalog catalog(nullptr, nullptr, nullptr);
+  bustub::Binder binder(catalog);
   catalog.CreateTable(
       nullptr, "y",
       bustub::Schema(std::vector{bustub::Column{"x", TypeId::INTEGER}, bustub::Column{"z", TypeId::INTEGER},
@@ -42,7 +43,12 @@ auto TryBind(const std::string &query) {
       nullptr, "b",
       bustub::Schema(std::vector{bustub::Column{"x", TypeId::INTEGER}, bustub::Column{"y", TypeId::INTEGER}}), false);
 
-  binder.ParseAndBindQuery(query, catalog);
+  catalog.CreateTable(
+      nullptr, "c",
+      bustub::Schema(std::vector{bustub::Column{"x", TypeId::VARCHAR, 100}, bustub::Column{"y", TypeId::VARCHAR, 100}}),
+      false);
+
+  binder.ParseAndBindQuery(query);
   return std::move(binder.statements_);
 }
 
@@ -92,8 +98,18 @@ TEST(BinderTest, BindCrossJoin) {
   PrintStatements(statements);
 }
 
+TEST(BinderTest, BindCrossThreeWayJoin) {
+  auto statements = TryBind("select * from a, b, y where a.x = b.y AND a.x = y.x");
+  PrintStatements(statements);
+}
+
 TEST(BinderTest, BindJoin) {
   auto statements = TryBind("select * from a INNER JOIN b ON a.x = b.y");
+  PrintStatements(statements);
+}
+
+TEST(BinderTest, BindThreeWayJoin) {
+  auto statements = TryBind("select * from (a INNER JOIN b ON a.x = b.y) INNER JOIN y ON a.x = y.x");
   PrintStatements(statements);
 }
 
@@ -119,16 +135,16 @@ TEST(BinderTest, FailBindUnknownColumn) {
   EXPECT_THROW(TryBind("select zzzz"), Exception);
 }
 
-// TODO(chi): create / drop table is not supported yet
-TEST(BinderTest, DISABLED_BindCreateDropTable) {
-  TryBind("CREATE TABLE tablex (v1 int)");
-  TryBind("DROP TABLE tablex");
-}
+TEST(BinderTest, BindCreateTable) { TryBind("CREATE TABLE tablex (v1 int)"); }
 
-// TODO(chi): insert is not supported yet
-TEST(BinderTest, DISABLED_BindInsert) {
-  TryBind("INSERT INTO y VALUES (1,2,3,4,5), (6,7,8,9,10)");
-  TryBind("INSERT INTO y SELECT * FROM y WHERE x < 500");
+TEST(BinderTest, BindInsert) { TryBind("INSERT INTO y VALUES (1,2,3,4,5), (6,7,8,9,10)"); }
+
+TEST(BinderTest, BindInsertSelect) { TryBind("INSERT INTO y SELECT * FROM y WHERE x < 500"); }
+
+TEST(BinderTest, BindVarchar) {
+  TryBind(R"(INSERT INTO c VALUES ('1', '2'))");
+  TryBind(R"(INSERT INTO c VALUES ('', ''))");
+  TryBind(fmt::format(R"(INSERT INTO c VALUES ('1', '{}'))", std::string(1024, 'a')));
 }
 
 TEST(BinderTest, BindAliasInAgg) {
@@ -148,6 +164,12 @@ TEST(BinderTest, BindUnaryOp) {
 
 TEST(BinderTest, BindBinaryOp) {
   auto statements = TryBind("select x+z,z+x,x*z,x/z from y");
+  PrintStatements(statements);
+}
+
+// TODO(chi): subquery is not supported yet
+TEST(BinderTest, DISABLED_BindUncorrelatedSubquery) {
+  auto statements = TryBind("select * from (select * from a) INNER JOIN (select * from b) ON a.x = b.y");
   PrintStatements(statements);
 }
 
