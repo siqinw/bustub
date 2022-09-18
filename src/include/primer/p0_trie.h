@@ -144,6 +144,9 @@ class TrieNode {
       return &children_.at(key_char);
   }
 
+  // std::unordered_map<char, std::unique_ptr<TrieNode>>& GetChildren(){
+  //   return children_;
+  // }
   /**
    * TODO(P0): Add implementation
    *
@@ -302,25 +305,29 @@ class Trie {
 
   template <typename T>
   bool InsertHelper(const std::string &key, char key_char, size_t pos, T value, 
-              std::unique_ptr<TrieNode> *node) {              
+              std::unique_ptr<TrieNode> *node) {    
     if (!(*node)->HasChild(key_char)){
-      if (pos == key.length())
-        return true;
       // 1. If TrieNode with this ending character does not exist, create new TrieNodeWithValue
       // and add it to parent node's children_ map.  
-      std::unique_ptr<TrieNode> *newNode = (*node)->InsertChildNode(key_char, std::unique_ptr<TrieNode>(new TrieNodeWithValue(key_char, value)));
-      return InsertHelper(key, key[pos+1], pos+1, value, newNode);       
+      if (pos == key.length()-1){
+        (*node)->InsertChildNode(key_char, std::unique_ptr<TrieNode>(new TrieNodeWithValue(key_char, value)));
+        return true;
+      } else {
+        std::unique_ptr<TrieNode> *newNode = (*node)->InsertChildNode(key_char, std::unique_ptr<TrieNode>(new TrieNode(key_char)));
+        return InsertHelper(key, key[pos+1], pos+1, value, newNode);   
+      }    
     } else {
       // 2. If the terminal node is a TrieNode, then convert it into TrieNodeWithValue by
       // invoking the appropriate constructor.  
-      if (pos == key.length()-1 && !(*node)->IsEndNode()){
-        std::unique_ptr<TrieNode> convertedNode = std::unique_ptr<TrieNode>(new TrieNodeWithValue(std::move(**((*node)->GetChildNode(key_char))), value));
+      std::unique_ptr<TrieNode> *childNode = (*node)->GetChildNode(key_char);
+      if (pos == key.length()-1 && !(*childNode)->IsEndNode()){
+        std::unique_ptr<TrieNode> convertedNode = std::unique_ptr<TrieNode>(new TrieNodeWithValue(std::move(**childNode), value));
         (*node)->RemoveChildNode(key_char);
         (*node)->InsertChildNode(key_char, std::move(convertedNode));
         return true;
       // 3. If it is already a TrieNodeWithValue,
       // then insertion fails and return false.  
-      }  else if (pos == key.length()-1 && (*node)->IsEndNode()) {
+      }  else if (pos == key.length()-1 && (*childNode)->IsEndNode()) {
         return false;
       } else {
         return InsertHelper(key, key[pos+1], pos+1, value, (*node)->GetChildNode(key_char));
@@ -345,7 +352,51 @@ class Trie {
    * @param key Key used to traverse the trie and find correct node
    * @return True if key exists and is removed, false otherwise
    */
-  bool Remove(const std::string &key) { return false; }
+  bool Remove(const std::string &key) { 
+    if (key.length() == 0)
+      return false; 
+    else{
+      bool success;
+      RemoveHelper(key, key[0], 0, &root_, &success);
+      return success;
+    }
+
+  }
+
+  std::unique_ptr<TrieNode>* RemoveHelper(const std::string &key, char key_char, size_t pos,
+                                    std::unique_ptr<TrieNode>* node, bool* success){
+  // if (node == nullptr){
+  //   *success = false;
+  //   return node;
+  // }
+
+  if (pos == key.length()){
+    if  (!(*node)->IsEndNode()){
+      *success = false;
+      return node; 
+    } else {
+      *success = true;
+      if ((*node)->HasChildren()){
+        (*node)->SetEndNode(false);
+        return node;
+      } else 
+        return nullptr;
+    }
+    } else {
+      if ((*node)->HasChild(key_char)){
+        std::unique_ptr<TrieNode>* ret = RemoveHelper(key, key[pos+1], pos+1, (*node)->GetChildNode(key_char), success);
+        if (ret == nullptr){
+          (*node)->RemoveChildNode(key_char);
+        }
+      } else {
+        *success = false;
+        return node;
+      }
+    }
+    return node;
+  } 
+
+
 
   /**
    * TODO(P0): Add implementation
