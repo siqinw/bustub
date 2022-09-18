@@ -299,8 +299,12 @@ class Trie {
   bool Insert(const std::string &key, T value) {
     if (key.length() == 0)
       return false;
-    else
-      return InsertHelper(key, key[0], 0, value, &root_);
+    else {
+      latch_.WLock();
+      bool ret = InsertHelper(key, key[0], 0, value, &root_);
+      latch_.WUnlock();
+      return ret;
+    }
   }
 
   template <typename T>
@@ -356,8 +360,10 @@ class Trie {
     if (key.length() == 0)
       return false; 
     else{
+      latch_.WLock();
       bool success;
       RemoveHelper(key, key[0], 0, &root_, &success);
+      latch_.WUnlock();
       return success;
     }
 
@@ -421,8 +427,12 @@ class Trie {
     if (key.length() == 0){
       *success = false;
       return {};
-    } else 
-      return GetValueHelper<T>(key, key[0], 0, &root_, success);
+    } else {
+      latch_.RLock();
+      T ret = GetValueHelper<T>(key, key[0], 0, &root_, success);
+      latch_.RUnlock();
+      return ret;
+    }
   }
 
   template <typename T>
