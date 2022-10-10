@@ -15,6 +15,12 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   set(CMAKE_BUILD_TYPE "Debug")
 endif()
 
+
+if(EMSCRIPTEN)
+    add_compile_options(-fexceptions)
+    add_link_options(-fexceptions)
+endif()
+
 # People keep running CMake in the wrong folder, completely nuking their project or creating weird bugs.
 # This checks if you're running CMake from a folder that already has CMakeLists.txt.
 # Importantly, this catches the common case of running it from the root directory.
@@ -128,7 +134,12 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 # Includes.
 set(BUSTUB_SRC_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/src/include)
 set(BUSTUB_TEST_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/test/include)
-set(BUSTUB_THIRD_PARTY_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/third_party ${PROJECT_SOURCE_DIR}/third_party/fmt/include ${PROJECT_SOURCE_DIR}/third_party/libpg_query/include)
+set(BUSTUB_THIRD_PARTY_INCLUDE_DIR
+    ${PROJECT_SOURCE_DIR}/third_party
+    ${PROJECT_SOURCE_DIR}/third_party/fmt/include
+    ${PROJECT_SOURCE_DIR}/third_party/libpg_query/include
+    ${PROJECT_SOURCE_DIR}/third_party/argparse/include
+)
 
 include_directories(${BUSTUB_SRC_INCLUDE_DIR} ${BUSTUB_TEST_INCLUDE_DIR} ${BUSTUB_THIRD_PARTY_INCLUDE_DIR})
 include_directories(BEFORE src) # This is needed for gtest.
@@ -263,5 +274,29 @@ add_custom_target(submit-p1
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
         )
 
+set(P2_FILES
+        "src/include/storage/page/b_plus_tree_page.h"
+        "src/storage/page/b_plus_tree_page.cpp"
+        "src/include/storage/page/b_plus_tree_internal_page.h"
+        "src/storage/page/b_plus_tree_internal_page.cpp"
+        "src/include/storage/page/b_plus_tree_leaf_page.h"
+        "src/storage/page/b_plus_tree_leaf_page.cpp"
+        "src/include/storage/index/index_iterator.h"
+        "src/storage/index/index_iterator.cpp"
+        "src/include/storage/index/b_plus_tree.h"
+        "src/storage/index/b_plus_tree.cpp"
+        ${P1_FILES}
+)
+add_custom_target(check-clang-tidy-p2
+        ${BUSTUB_BUILD_SUPPORT_DIR}/run_clang_tidy.py                     # run LLVM's clang-tidy script
+        -clang-tidy-binary ${CLANG_TIDY_BIN}                              # using our clang-tidy binary
+        -p ${CMAKE_BINARY_DIR}                                            # using cmake's generated compile commands
+        ${P2_FILES}
+        )
+add_custom_target(submit-p2
+        zip project2-submission.zip
+        ${P2_FILES}
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        )
 
 add_dependencies(check-clang-tidy gtest bustub)                    # needs gtest headers, compile_commands.json
