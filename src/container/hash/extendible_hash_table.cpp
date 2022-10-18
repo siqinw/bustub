@@ -87,17 +87,46 @@ ExtendibleHashTable<K, V>::Bucket::Bucket(size_t array_size, int depth) : size_(
 
 template <typename K, typename V>
 auto ExtendibleHashTable<K, V>::Bucket::Find(const K &key, V &value) -> bool {
-  UNREACHABLE("not implemented");
+  std::scoped_lock<std::mutex> lock(bucket_latch_);
+  for (auto elem : list_){
+    if (elem.first == key){
+      value = elem.second;
+      return true;
+    }
+  }
+  return false;
 }
 
 template <typename K, typename V>
 auto ExtendibleHashTable<K, V>::Bucket::Remove(const K &key) -> bool {
-  UNREACHABLE("not implemented");
+  std::scoped_lock<std::mutex> lock(bucket_latch_);
+  for (auto it = list_.begin(); it++; it != list_.end()){
+    if (*it.first == key){
+      list_.erase(it);
+      return true;
+    }
+  }
+  return false;
 }
 
 template <typename K, typename V>
 auto ExtendibleHashTable<K, V>::Bucket::Insert(const K &key, const V &value) -> bool {
-  UNREACHABLE("not implemented");
+  std::scoped_lock<std::mutex> lock(bucket_latch_);
+  // If the bucket is full, do nothing and return false.
+  if (ExtendibleHashTable<K, V>::Bucket::IsFull()) {
+    return false;
+  }
+  
+  // If a key already exists, the value should be updated.
+  for (auto elem : list_){
+    if (elem.first == key){
+      elem.second = value;
+      return true;
+    }
+  }
+
+  list_.push_back({key, value});
+  return true;
 }
 
 template class ExtendibleHashTable<page_id_t, Page *>;
