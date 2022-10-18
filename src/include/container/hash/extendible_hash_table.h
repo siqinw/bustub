@@ -162,6 +162,7 @@ class ExtendibleHashTable : public HashTable<K, V> {
     size_t size_;
     int depth_;
     std::list<std::pair<K, V>> list_;
+    mutable std::mutex bucket_latch_;
   };
 
  private:
