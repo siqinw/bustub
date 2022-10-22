@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "container/hash/hash_table.h"
+#include "common/logger.h"
 
 namespace bustub {
 
@@ -157,12 +158,15 @@ class ExtendibleHashTable : public HashTable<K, V> {
      */
     auto Insert(const K &key, const V &value) -> bool;
 
+    auto Exists(const K &key) -> bool;
+
    private:
     // TODO(student): You may add additional private members and helper functions
     size_t size_;
     int depth_;
     std::list<std::pair<K, V>> list_;
     mutable std::mutex bucket_latch_;
+
   };
 
  private:
