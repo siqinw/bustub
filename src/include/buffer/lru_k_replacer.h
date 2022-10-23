@@ -17,6 +17,7 @@
 #include <mutex>  // NOLINT
 #include <unordered_map>
 #include <vector>
+#include <iostream>
 
 #include "common/config.h"
 #include "common/macros.h"
@@ -132,14 +133,36 @@ class LRUKReplacer {
    */
   auto Size() -> size_t;
 
+  class Frame
+  {
+  private:
+    frame_id_t frame_id_;
+    std::vector<size_t> timestamps;
+    // size_t k_distance;
+  public:
+    Frame(frame_id_t frame_id);
+    ~Frame();
+    void RecordAccess(size_t timestamp);
+    auto GetTimestamps() -> std::vector<size_t>;
+    auto FindKthPreviousTimestamp(size_t k) -> size_t;
+    auto inline GetFrameID() -> frame_id_t {return frame_id_;}
+  };
+  
+
+  
  private:
   // TODO(student): implement me! You can replace these member variables as you like.
   // Remove maybe_unused if you start using them.
-  [[maybe_unused]] size_t current_timestamp_{0};
-  [[maybe_unused]] size_t curr_size_{0};
-  [[maybe_unused]] size_t replacer_size_;
-  [[maybe_unused]] size_t k_;
+  size_t current_timestamp_{0};
+  size_t curr_size_{0};
+  size_t replacer_size_;
+  size_t k_;
   std::mutex latch_;
+  std::unordered_map<frame_id_t, Frame> frame_map_; 
+  std::unordered_map<frame_id_t, Frame> non_evict_frames_;
+
+  void FindEvictFrame(frame_id_t *frame_id);
+  auto FindEarliestFrame(std::vector<LRUKReplacer::Frame> frames) -> frame_id_t;
 };
 
 }  // namespace bustub
