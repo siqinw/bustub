@@ -23,8 +23,8 @@
 #include <utility>
 #include <vector>
 
-#include "container/hash/hash_table.h"
 #include "common/logger.h"
+#include "container/hash/hash_table.h"
 
 namespace bustub {
 
@@ -166,7 +166,6 @@ class ExtendibleHashTable : public HashTable<K, V> {
     int depth_;
     std::list<std::pair<K, V>> list_;
     mutable std::mutex bucket_latch_;
-
   };
 
  private:
