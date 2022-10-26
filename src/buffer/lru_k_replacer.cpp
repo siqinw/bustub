@@ -63,7 +63,7 @@ void LRUKReplacer::SetEvictable(frame_id_t frame_id, bool set_evictable) {
       frame_map_.erase(frame_id);
       non_evict_frames_.insert({frame_id, frame});
       curr_size_--;
-    // If non-evictable, set to evictable
+      // If non-evictable, set to evictable
     } else if (non_evict_frames_.count(frame_id) != 0 && set_evictable) {
       Frame frame = non_evict_frames_.at(frame_id);
       frame_map_.insert({frame_id, frame});
@@ -95,7 +95,7 @@ void LRUKReplacer::FindEvictFrame(frame_id_t *frame_id) {
   std::vector<LRUKReplacer::Frame> largest_k_frames;
   size_t largest_k_distance = 0;
 
-  for (auto const & elem : frame_map_) {
+  for (auto const &elem : frame_map_) {
     Frame frame = elem.second;
     std::vector<size_t> timestamps = frame.GetTimestamps();
     BUSTUB_ASSERT(!timestamps.empty(), "ZERO Timestamp entry");
@@ -118,7 +118,7 @@ void LRUKReplacer::FindEvictFrame(frame_id_t *frame_id) {
   }
 }
 
-auto LRUKReplacer::FindEarliestFrame(std::vector<LRUKReplacer::Frame> const & frames) -> frame_id_t {
+auto LRUKReplacer::FindEarliestFrame(std::vector<LRUKReplacer::Frame> const &frames) -> frame_id_t {
   BUSTUB_ASSERT(!frames.empty(), "ZERO Frame");
 
   frame_id_t earliest_frame = -1;

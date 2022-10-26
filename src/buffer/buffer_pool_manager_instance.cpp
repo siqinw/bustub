@@ -73,7 +73,6 @@ auto BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) -> Page * {
 }
 
 auto BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) -> Page * {
-  Page *page = nullptr;
   frame_id_t frame_id = INVALID_PAGE_ID;
 
   if (!page_table_->Find(page_id, frame_id)) {
@@ -88,13 +87,14 @@ auto BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) -> Page * {
         return nullptr;
       }
 
-      page = &pages_[frame_id];
+      Page *page = &pages_[frame_id];
       if (page->IsDirty()) {
         disk_manager_->WritePage(page->GetPageId(), page->GetData());
       }
       page_table_->Remove(page->page_id_);
     }
 
+    Page *page = &pages_[frame_id];
     ResetPage(page);
     page->page_id_ = page_id;
     page->pin_count_++;
@@ -113,7 +113,7 @@ auto BufferPoolManagerInstance::UnpinPgImp(page_id_t page_id, bool is_dirty) -> 
 
   if (!page_table_->Find(page_id, frame_id) || pages_[frame_id].pin_count_ == 0) {
     return false;
-  } 
+  }
 
   Page *page = &pages_[frame_id];
   page->pin_count_--;
@@ -121,7 +121,7 @@ auto BufferPoolManagerInstance::UnpinPgImp(page_id_t page_id, bool is_dirty) -> 
   if (page->pin_count_ == 0) {
     replacer_->SetEvictable(frame_id, true);
   }
-  
+
   return true;
 }
 

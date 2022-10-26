@@ -159,7 +159,7 @@ class LRUKReplacer {
   std::unordered_map<frame_id_t, Frame> non_evict_frames_;
 
   void FindEvictFrame(frame_id_t *frame_id);
-  auto FindEarliestFrame(std::vector<LRUKReplacer::Frame> const & frames) -> frame_id_t;
+  auto FindEarliestFrame(std::vector<LRUKReplacer::Frame> const &frames) -> frame_id_t;
 };
 
 }  // namespace bustub
