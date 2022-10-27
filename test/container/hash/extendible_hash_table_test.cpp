@@ -42,9 +42,92 @@ TEST(ExtendibleHashTableTest, SampleTest) {
   EXPECT_FALSE(table->Remove(20));
 }
 
+TEST(ExtendibleHashTableTest, InsertSplitTest) {
+  auto table = std::make_unique<ExtendibleHashTable<int, std::string>>(2);
+
+  table->Insert(1, "a");
+  table->Insert(2, "b");
+  EXPECT_EQ(0, table->GetLocalDepth(0));
+  // table->Insert(3, "c");
+  table->Insert(3, "c");
+  table->Insert(4, "d");
+  EXPECT_EQ(1, table->GetLocalDepth(0));
+  EXPECT_EQ(1, table->GetLocalDepth(1));
+  table->Insert(5, "e");
+  // table->Insert(5, "e");
+  table->Insert(6, "f");
+  // table->Insert(6, "f");
+
+  EXPECT_EQ(2, table->GetLocalDepth(0));
+  EXPECT_EQ(2, table->GetLocalDepth(1));
+  EXPECT_EQ(2, table->GetLocalDepth(2));
+  EXPECT_EQ(2, table->GetLocalDepth(3));
+}
+
+TEST(ExtendibleHashTableTest, LocalDepthTest) {
+  auto table = std::make_unique<ExtendibleHashTable<int, std::string>>(4);
+
+  table->Insert(4, "a");
+  table->Insert(12, "b");
+  // EXPECT_EQ(0, table->GetLocalDepth(0));
+  table->Insert(16, "c");
+  table->Insert(64, "d");
+  table->Insert(5, "e");
+  table->Insert(10, "f");
+  table->Insert(51, "f");
+  table->Insert(15, "f");
+  table->Insert(18, "f");
+  table->Insert(20, "f");
+  table->Insert(7, "f");
+  table->Insert(21, "f");
+  table->Insert(11, "f");
+  table->Insert(19, "f");
+
+  EXPECT_EQ(3, table->GetLocalDepth(0));
+  EXPECT_EQ(2, table->GetLocalDepth(1));
+  EXPECT_EQ(2, table->GetLocalDepth(2));
+  EXPECT_EQ(3, table->GetLocalDepth(3));
+  EXPECT_EQ(3, table->GetLocalDepth(4));
+  EXPECT_EQ(2, table->GetLocalDepth(5));
+  EXPECT_EQ(2, table->GetLocalDepth(6));
+  EXPECT_EQ(3, table->GetLocalDepth(7));
+
+  EXPECT_EQ(6, table->GetNumBuckets());
+}
+
+TEST(ExtendibleHashTableTest, GetNumBucketsTest) {
+  auto table = std::make_unique<ExtendibleHashTable<int, std::string>>(4);
+
+  table->Insert(4, "a");
+  table->Insert(12, "b");
+  table->Insert(16, "c");
+  table->Insert(64, "d");
+  table->Insert(31, "e");
+  table->Insert(10, "f");
+  table->Insert(51, "f");
+  table->Insert(15, "f");
+  table->Insert(18, "f");
+  table->Insert(20, "f");
+  table->Insert(7, "f");
+  table->Insert(23, "f");
+  // table->Insert(11, "f");
+  // table->Insert(19, "f");
+
+  // EXPECT_EQ(3, table->GetLocalDepth(0));
+  // EXPECT_EQ(2, table->GetLocalDepth(1));
+  // EXPECT_EQ(2, table->GetLocalDepth(2));
+  // EXPECT_EQ(3, table->GetLocalDepth(3));
+  // EXPECT_EQ(3, table->GetLocalDepth(4));
+  // EXPECT_EQ(2, table->GetLocalDepth(5));
+  // EXPECT_EQ(2, table->GetLocalDepth(6));
+  // EXPECT_EQ(3, table->GetLocalDepth(7));
+
+  EXPECT_EQ(6, table->GetNumBuckets());
+}
+
 TEST(ExtendibleHashTableTest, ConcurrentInsertTest) {
   const int num_runs = 50;
-  const int num_threads = 3;
+  const int num_threads = 10;
 
   // Run concurrent test multiple times to guarantee correctness.
   for (int run = 0; run < num_runs; run++) {
@@ -59,7 +142,7 @@ TEST(ExtendibleHashTableTest, ConcurrentInsertTest) {
       threads[i].join();
     }
 
-    EXPECT_EQ(table->GetGlobalDepth(), 1);
+    EXPECT_EQ(table->GetGlobalDepth(), 3);
     for (int i = 0; i < num_threads; i++) {
       int val;
       EXPECT_TRUE(table->Find(i, val));
