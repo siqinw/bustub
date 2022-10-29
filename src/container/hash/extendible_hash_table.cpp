@@ -93,7 +93,7 @@ auto ExtendibleHashTable<K, V>::Find(const K &key, V &value) -> bool {
 template <typename K, typename V>
 auto ExtendibleHashTable<K, V>::Remove(const K &key) -> bool {
   // std::scoped_lock<std::mutex> lock(latch_);
-  std::cout << "Removing: " << key << std::endl;
+  // std::cout << "Removing: " << key << std::endl;
   latch_.WLock();
   size_t idx = IndexOf(key);
   bool ret = dir_[idx]->Remove(key);
@@ -104,7 +104,7 @@ auto ExtendibleHashTable<K, V>::Remove(const K &key) -> bool {
 template <typename K, typename V>
 void ExtendibleHashTable<K, V>::Insert(const K &key, const V &value) {
   // std::scoped_lock<std::mutex> lock(latch_);
-  std::cout << "Inserting: " << key << std::endl;
+  // std::cout << "Inserting: " << key << std::endl;
   latch_.WLock();
   size_t idx = IndexOf(key);
 

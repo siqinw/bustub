@@ -38,6 +38,7 @@ BufferPoolManagerInstance::~BufferPoolManagerInstance() {
 }
 
 auto BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) -> Page * {
+  std::scoped_lock lock(latch_);
   Page *page = nullptr;
   frame_id_t frame_id = INVALID_PAGE_ID;
 
@@ -69,10 +70,13 @@ auto BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) -> Page * {
   ResetPage(page);
   page->page_id_ = *page_id;
   page->pin_count_++;
+  // std::cout << "Created New Page " << *page_id << std::endl;
   return page;
 }
 
 auto BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) -> Page * {
+  std::scoped_lock lock(latch_);
+  // std::cout << "Fetching Page " << page_id << std::endl;
   frame_id_t frame_id = INVALID_PAGE_ID;
 
   if (!page_table_->Find(page_id, frame_id)) {
@@ -97,18 +101,21 @@ auto BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) -> Page * {
     Page *page = &pages_[frame_id];
     ResetPage(page);
     page->page_id_ = page_id;
-    page->pin_count_++;
-    disk_manager_->ReadPage(page_id, page->GetData());
+    disk_manager_->ReadPage(page_id, page->data_);
+    page_table_->Insert(page_id, frame_id);
   }
 
+  Page *page = &pages_[frame_id];
+  page->pin_count_++;
   replacer_->RecordAccess(frame_id);
   replacer_->SetEvictable(frame_id, false);
 
-  page_table_->Insert(page_id, frame_id);
-  return &pages_[frame_id];
+  return page;
 }
 
 auto BufferPoolManagerInstance::UnpinPgImp(page_id_t page_id, bool is_dirty) -> bool {
+  std::scoped_lock lock(latch_);
+  // std::cout << "Unpin Page " << page_id << " Dirty: " << is_dirty << std::endl;
   frame_id_t frame_id = INVALID_PAGE_ID;
 
   if (!page_table_->Find(page_id, frame_id) || pages_[frame_id].pin_count_ == 0) {
@@ -117,15 +124,27 @@ auto BufferPoolManagerInstance::UnpinPgImp(page_id_t page_id, bool is_dirty) -> 
 
   Page *page = &pages_[frame_id];
   page->pin_count_--;
-  page->is_dirty_ = is_dirty;
   if (page->pin_count_ == 0) {
     replacer_->SetEvictable(frame_id, true);
+  }
+
+  if (!page->is_dirty_) {
+    page->is_dirty_ = is_dirty;
+  } else {
+    // IF dirty page already, then need to compare data in page & in disk
+    char disk_data[4096];
+    disk_manager_->ReadPage(page_id, disk_data);
+    if (strcmp(page->data_, disk_data) == 0) {
+      page->is_dirty_ = false;
+    }
   }
 
   return true;
 }
 
 auto BufferPoolManagerInstance::FlushPgImp(page_id_t page_id) -> bool {
+  std::scoped_lock lock(latch_);
+  // std::cout << "Flushing Page " << page_id << std::endl;
   BUSTUB_ASSERT(page_id != INVALID_PAGE_ID, "Invalid Page ID");
   frame_id_t frame_id = INVALID_PAGE_ID;
 
@@ -150,6 +169,7 @@ void BufferPoolManagerInstance::FlushAllPgsImp() {
 }
 
 auto BufferPoolManagerInstance::DeletePgImp(page_id_t page_id) -> bool {
+  std::scoped_lock lock(latch_);
   frame_id_t frame_id = INVALID_PAGE_ID;
 
   if (!page_table_->Find(page_id, frame_id)) {

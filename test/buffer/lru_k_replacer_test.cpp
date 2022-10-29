@@ -106,7 +106,7 @@ TEST(LRUKReplacerTest, ConcurrentTest) {
   for (int run = 0; run < num_runs; run++) {
     LRUKReplacer lru_replacer(7, 2);
     std::vector<std::thread> threads;
-    threads.reserve(2*num_threads);
+    threads.reserve(2 * num_threads);
 
     for (int tid = 0; tid < num_threads; tid++) {
       threads.emplace_back([tid, &lru_replacer]() { lru_replacer.RecordAccess(tid); });
@@ -118,7 +118,7 @@ TEST(LRUKReplacerTest, ConcurrentTest) {
     for (int tid = 0; tid < num_threads; tid++) {
       threads.emplace_back([tid, &lru_replacer]() { lru_replacer.SetEvictable(tid, true); });
     }
-    for (int i = num_threads; i < 2*num_threads; i++) {
+    for (int i = num_threads; i < 2 * num_threads; i++) {
       threads[i].join();
     }
     EXPECT_EQ(lru_replacer.Size(), num_threads);
