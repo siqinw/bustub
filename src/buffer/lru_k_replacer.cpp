@@ -17,79 +17,77 @@ namespace bustub {
 LRUKReplacer::LRUKReplacer(size_t num_frames, size_t k) : replacer_size_(num_frames), k_(k) {}
 
 auto LRUKReplacer::Evict(frame_id_t *frame_id) -> bool {
-  {
-    std::scoped_lock<std::mutex> lock(latch_);
-    current_timestamp_++;
-
-    if (frame_map_.empty()) {
-      return false;
-    }
-
+  latch_.WLock();
+  current_timestamp_++;
+  bool ret = false;
+  if (!frame_map_.empty()) {
     FindEvictFrame(frame_id);
     frame_map_.erase(*frame_id);
-    curr_size_--;
+    ret = true;
+    // std::cout << "Evicting Frame " << *frame_id << std::endl;
   }
-  // std::cout << "Evicting Frame " << *frame_id << std::endl;
-  return true;
+  latch_.WUnlock();
+  return ret;
 }
 
 void LRUKReplacer::RecordAccess(frame_id_t frame_id) {
+  latch_.WLock();
+  // std::cout << "Record Access " << frame_id << std::endl;
   BUSTUB_ASSERT((size_t)frame_id <= replacer_size_, "Invalid Frame ID");
-  {
-    std::scoped_lock<std::mutex> lock(latch_);
-    current_timestamp_++;
+  current_timestamp_++;
 
-    if (frame_map_.count(frame_id) == 0 && non_evict_frames_.count(frame_id) == 0) {
-      frame_map_.insert({frame_id, Frame(frame_id)});
-      curr_size_++;
-      frame_map_.at(frame_id).RecordAccess(current_timestamp_);
-    } else if (frame_map_.count(frame_id) != 0) {
-      frame_map_.at(frame_id).RecordAccess(current_timestamp_);
-    } else {
-      non_evict_frames_.at(frame_id).RecordAccess(current_timestamp_);
-    }
+  if (frame_map_.count(frame_id) == 0 && non_evict_frames_.count(frame_id) == 0) {
+    non_evict_frames_.insert({frame_id, Frame(frame_id)});
+    non_evict_frames_.at(frame_id).RecordAccess(current_timestamp_);
+  } else if (frame_map_.count(frame_id) != 0 && non_evict_frames_.count(frame_id) == 0) {
+    frame_map_.at(frame_id).RecordAccess(current_timestamp_);
+  } else {
+    non_evict_frames_.at(frame_id).RecordAccess(current_timestamp_);
   }
+  latch_.WUnlock();
 }
 
 void LRUKReplacer::SetEvictable(frame_id_t frame_id, bool set_evictable) {
+  // std::cout << "Set Frame: " <<  frame_id << " Evictable " << set_evictable << std::endl;
+  latch_.WLock();
   BUSTUB_ASSERT((size_t)frame_id <= replacer_size_, "Invalid Frame ID");
-  {
-    std::scoped_lock<std::mutex> lock(latch_);
-    current_timestamp_++;
+  current_timestamp_++;
 
-    // If evictable, set to non-evictable
-    if (frame_map_.count(frame_id) != 0 && !set_evictable) {
-      Frame frame = frame_map_.at(frame_id);
-      frame_map_.erase(frame_id);
-      non_evict_frames_.insert({frame_id, frame});
-      curr_size_--;
-      // If non-evictable, set to evictable
-    } else if (non_evict_frames_.count(frame_id) != 0 && set_evictable) {
-      Frame frame = non_evict_frames_.at(frame_id);
-      frame_map_.insert({frame_id, frame});
-      non_evict_frames_.erase(frame_id);
-      curr_size_++;
-    } else {
-    }
+  // If evictable, set to non-evictable
+  if (frame_map_.count(frame_id) != 0 && !set_evictable) {
+    Frame frame = frame_map_.at(frame_id);
+    frame_map_.erase(frame_id);
+    non_evict_frames_.insert({frame_id, frame});
+    // If non-evictable, set to evictable
+  } else if (non_evict_frames_.count(frame_id) != 0 && set_evictable) {
+    Frame frame = non_evict_frames_.at(frame_id);
+    frame_map_.insert({frame_id, frame});
+    non_evict_frames_.erase(frame_id);
+  } else {
+    // Do nothing
   }
+  latch_.WUnlock();
 }
 
 void LRUKReplacer::Remove(frame_id_t frame_id) {
+  latch_.WLock();
   BUSTUB_ASSERT((size_t)frame_id <= replacer_size_, "Invalid Frame ID");
-  {
-    std::scoped_lock<std::mutex> lock(latch_);
-    current_timestamp_++;
+  current_timestamp_++;
 
-    BUSTUB_ASSERT(!non_evict_frames_.count(frame_id), "Evicting non-evictable frame");
+  BUSTUB_ASSERT(!non_evict_frames_.count(frame_id), "Evicting non-evictable frame");
 
-    if (frame_map_.count(frame_id) != 0) {
-      frame_map_.erase(frame_id);
-      curr_size_--;
-    }
+  if (frame_map_.count(frame_id) != 0) {
+    frame_map_.erase(frame_id);
   }
+  latch_.WUnlock();
 }
 
-auto LRUKReplacer::Size() -> size_t { return curr_size_; }
+auto LRUKReplacer::Size() -> size_t {
+  latch_.RLock();
+  size_t ret = frame_map_.size();
+  latch_.RUnlock();
+  return ret;
+}
 
 void LRUKReplacer::FindEvictFrame(frame_id_t *frame_id) {
   std::vector<LRUKReplacer::Frame> largest_k_frames;
@@ -138,13 +136,6 @@ auto LRUKReplacer::FindEarliestFrame(std::vector<LRUKReplacer::Frame> const &fra
 LRUKReplacer::Frame::Frame(frame_id_t frame_id) : frame_id_(frame_id) {}
 
 LRUKReplacer::Frame::~Frame() = default;
-
-void LRUKReplacer::Frame::RecordAccess(size_t timestamp) { timestamps_.push_back(timestamp); }
-
-auto LRUKReplacer::Frame::GetTimestamps() -> std::vector<size_t> {
-  // BUSTUB_ASSERT(timestamps_.size(), "ZERO Timestamp");
-  return timestamps_;
-}
 
 auto LRUKReplacer::Frame::FindKthPreviousTimestamp(size_t k) -> size_t {
   BUSTUB_ASSERT(timestamps_.size() >= k, "Less Than K Timestamps");

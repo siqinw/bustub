@@ -21,6 +21,7 @@
 
 #include "common/config.h"
 #include "common/macros.h"
+#include "common/rwlatch.h"
 
 namespace bustub {
 
@@ -141,8 +142,8 @@ class LRUKReplacer {
    public:
     explicit Frame(frame_id_t frame_id);
     ~Frame();
-    void RecordAccess(size_t timestamp);
-    auto GetTimestamps() -> std::vector<size_t>;
+    void inline RecordAccess(size_t timestamp) { timestamps_.push_back(timestamp); }
+    auto inline GetTimestamps() -> std::vector<size_t> { return timestamps_; }
     auto FindKthPreviousTimestamp(size_t k) -> size_t;
     auto inline GetFrameID() -> frame_id_t { return frame_id_; }
   };
@@ -151,10 +152,11 @@ class LRUKReplacer {
   // TODO(student): implement me! You can replace these member variables as you like.
   // Remove maybe_unused if you start using them.
   size_t current_timestamp_{0};
-  size_t curr_size_{0};
+  // size_t curr_size_{0};
   size_t replacer_size_;
   size_t k_;
-  std::mutex latch_;
+  // std::mutex latch_;
+  mutable ReaderWriterLatch latch_;
   std::unordered_map<frame_id_t, Frame> frame_map_;
   std::unordered_map<frame_id_t, Frame> non_evict_frames_;
 
