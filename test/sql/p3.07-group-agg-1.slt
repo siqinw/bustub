@@ -1,3 +1,5 @@
+# 5 pts
+
 # How many TAs are there for OH on each weekday?
 # "rowsort" means that the order of result doesn't matter.
 
@@ -22,6 +24,10 @@ statement ok
 -- v5: 233
 -- v6: some magic string
 create table t1(v1 int, v2 int, v3 int, v4 int, v5 int, v6 varchar(128));
+
+query
+select v5, min(v1), sum(v2), count(*) from t1 group by v5; -- no groups, no output
+----
 
 query
 insert into t1 select * from __mock_agg_input_small;
