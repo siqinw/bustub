@@ -16,7 +16,7 @@
 
 namespace bustub {
 
-TEST(LRUKReplacerTest, DISABLED_SampleTest) {
+TEST(LRUKReplacerTest, SampleTest) {
   LRUKReplacer lru_replacer(7, 2);
 
   // Scenario: add six elements to the replacer. We have [1,2,3,4,5]. Frame 6 is non-evictable.
@@ -97,4 +97,44 @@ TEST(LRUKReplacerTest, DISABLED_SampleTest) {
   lru_replacer.Remove(1);
   ASSERT_EQ(0, lru_replacer.Size());
 }
+
+TEST(LRUKReplacerTest, ConcurrentTest) {
+  const int num_runs = 50;
+  const int num_threads = 6;
+
+  // Run concurrent test multiple times to guarantee correctness.
+  for (int run = 0; run < num_runs; run++) {
+    LRUKReplacer lru_replacer(7, 2);
+    std::vector<std::thread> threads;
+    threads.reserve(2 * num_threads);
+
+    for (int tid = 0; tid < num_threads; tid++) {
+      threads.emplace_back([tid, &lru_replacer]() { lru_replacer.RecordAccess(tid); });
+    }
+    for (int i = 0; i < num_threads; i++) {
+      threads[i].join();
+    }
+
+    for (int tid = 0; tid < num_threads; tid++) {
+      threads.emplace_back([tid, &lru_replacer]() { lru_replacer.SetEvictable(tid, true); });
+    }
+    for (int i = num_threads; i < 2 * num_threads; i++) {
+      threads[i].join();
+    }
+    EXPECT_EQ(lru_replacer.Size(), num_threads);
+
+    // threads.clear();
+    for (int tid = 0; tid < num_threads; tid++) {
+      int value;
+      lru_replacer.Evict(&value);
+      // threads.emplace_back([value, &lru_replacer]() { lru_replacer.Evict(&value); });
+    }
+    // for (int i = 0; i < num_threads; i++) {
+    //   threads[i].join();
+    // }
+
+    EXPECT_EQ(lru_replacer.Size(), 0);
+  }
+}
+
 }  // namespace bustub
