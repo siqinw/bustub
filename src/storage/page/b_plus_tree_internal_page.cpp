@@ -26,10 +26,11 @@ namespace bustub {
  */
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_INTERNAL_PAGE_TYPE::Init(page_id_t page_id, page_id_t parent_id, int max_size) {
-  page_id_ = page_id;
-  parent_page_id_ = parent_id;
+  page_type_ = IndexPageType::INTERNAL_PAGE;
+  size_ = 0;
   max_size_ = max_size;
-  size_ = 1;
+  parent_page_id_ = parent_id;
+  page_id_ = page_id;
 }
 /*
  * Helper method to get/set the key associated with input "index"(a.k.a
@@ -37,10 +38,7 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::Init(page_id_t page_id, page_id_t parent_id
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::KeyAt(int index) const -> KeyType {
-  // replace with your own code
-  KeyType key{}
-  key = array_[index].first;
-  return key;
+  return array_[index].first;
 }
 
 INDEX_TEMPLATE_ARGUMENTS
