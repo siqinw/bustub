@@ -21,7 +21,9 @@ BPLUSTREE_TYPE::BPlusTree(std::string name, BufferPoolManager *buffer_pool_manag
  * Helper function to decide whether current b+tree is empty
  */
 INDEX_TEMPLATE_ARGUMENTS
-auto BPLUSTREE_TYPE::IsEmpty() const -> bool { return true; }
+auto BPLUSTREE_TYPE::IsEmpty() const -> bool { 
+  return root_page_id_ == INVALID_PAGE_ID; 
+}
 /*****************************************************************************
  * SEARCH
  *****************************************************************************/
@@ -32,7 +34,17 @@ auto BPLUSTREE_TYPE::IsEmpty() const -> bool { return true; }
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result, Transaction *transaction) -> bool {
-  return false;
+  if (IsEmpty()) {
+    return false;
+  }
+
+  return (GetValueHelper(root_page_id_, key, result, transaction)); 
+}
+
+INDEX_TEMPLATE_ARGUMENTS
+auto BPLUSTREE_TYPE::GetValueHelper(const page_id_t page_id, const KeyType &key, std::vector<ValueType> *result, Transaction *transaction) -> bool {
+  Page* page = buffer_pool_manager -> FetchPage(page_id);
+
 }
 
 /*****************************************************************************
@@ -47,6 +59,13 @@ auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transaction *transaction) -> bool {
+  if (IsEmpty()) {
+    // Allocate new page for root page
+    page_id_t page_id;
+    buffer_pool_manager -> NewPage(page_id);
+    root_page_id_ = page_id;
+    UpdateRootPageId(1);
+  }
   return false;
 }
 
