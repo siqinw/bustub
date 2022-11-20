@@ -89,6 +89,11 @@ class BPlusTree {
   KeyComparator comparator_;
   int leaf_max_size_;
   int internal_max_size_;
+
+  private:
+  auto GetLeafPage(const KeyType &key) -> page_id_t;
+  void InsertInLeaf(BPlusTreeLeafPage<KeyType, ValueType, KeyComparator>* leafPage, const KeyType &key, const ValueType &value);
+  void InsertInParent(BPlusTreePage* leftPage, BPlusTreePage* rightPage, const KeyType &key);
 };
 
 }  // namespace bustub

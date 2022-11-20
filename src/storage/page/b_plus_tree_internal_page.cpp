@@ -53,6 +53,26 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::SetKeyAt(int index, const KeyType &key) {
 INDEX_TEMPLATE_ARGUMENTS
 auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::ValueAt(int index) const -> ValueType { return array_[index].second; }
 
+INDEX_TEMPLATE_ARGUMENTS
+void B_PLUS_TREE_INTERNAL_PAGE_TYPE::SetMappingAt(int index, const KeyType &key, const ValueType &value) {
+  array_[index].first = key;
+  array_[index].second = value;
+}
+
+INDEX_TEMPLATE_ARGUMENTS
+void B_PLUS_TREE_INTERNAL_PAGE_TYPE::WriteToPage(char* data) {
+  // Copy header
+  memcpy(data, &page_type_, 4);
+  memcpy(data+4, &lsn_, 4);
+  memcpy(data+8, &size_, 4);
+  memcpy(data+12, &max_size_, 4);
+  memcpy(data+16, &parent_page_id_, 4);
+  memcpy(data+20, &page_id_, 4);
+  // copy items
+  memcpy(data+INTERNAL_PAGE_HEADER_SIZE, array_, sizeof(MappingType) * size_);
+}
+
+
 // valuetype for internalNode should be page id_t
 template class BPlusTreeInternalPage<GenericKey<4>, page_id_t, GenericComparator<4>>;
 template class BPlusTreeInternalPage<GenericKey<8>, page_id_t, GenericComparator<8>>;

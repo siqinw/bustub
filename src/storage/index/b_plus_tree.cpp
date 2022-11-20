@@ -37,18 +37,39 @@ auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result
   if (IsEmpty()) {
     return false;
   }
-
+  
+  page_id_t leaf_page_id = GetLeafPage(key);
+  Page* page = buffer_pool_manager_ -> FetchPage(leaf_page_id);
+  auto leafPage = reinterpret_cast<BPlusTreeLeafPage<KeyType, ValueType, KeyComparator>*> (page->GetData());
+  // ToString(leafPage, buffer_pool_manager_);
+  
+  int sz = leafPage -> GetSize();
   bool found = false;
+  for (int i=0; i<sz; i++) {
+    if (comparator_(leafPage -> KeyAt(i), key) == 0) {
+      result -> push_back(leafPage -> ValueAt(i));
+      found = true;
+    }
+  }
+
+  buffer_pool_manager_ -> UnpinPage(leafPage->GetPageId(), false);
+  return found;
+}
+
+
+INDEX_TEMPLATE_ARGUMENTS
+auto BPLUSTREE_TYPE::GetLeafPage(const KeyType &key)  -> page_id_t {
   page_id_t page_id = root_page_id_;
   Page* page = buffer_pool_manager_ -> FetchPage(page_id);
-  // Right way to do it?
-  BPlusTreePage* bptPage = reinterpret_cast<BPlusTreePage*> (page->GetData());
+  auto bptPage = reinterpret_cast<BPlusTreePage*> (page->GetData());
+  
   while (!bptPage -> IsLeafPage()) {
     // Search in internal pages until reach a leaf page
     BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator>* internalPage = static_cast<BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator>*> (bptPage);
     int sz = internalPage -> GetSize();
     for (int i=1; i<=sz; i++) {
-      if (i == sz || comparator_(internalPage -> KeyAt(i), key) >= 0) {
+      // returns true if lhs < rhs
+      if (i == sz || comparator_(internalPage -> KeyAt(i), key) == -1) {
           buffer_pool_manager_ -> UnpinPage(page_id, false);
           page_id = internalPage -> ValueAt(i-1);
           page = buffer_pool_manager_ -> FetchPage(page_id);
@@ -58,20 +79,8 @@ auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result
     }
   }
 
-  BPlusTreeLeafPage<KeyType, ValueType, KeyComparator>* leafPage = static_cast<BPlusTreeLeafPage<KeyType, ValueType, KeyComparator>*> (bptPage);
-  int sz = leafPage -> GetSize();
-
-  for (int i=0; i<sz; i++) {
-    if (comparator_(leafPage -> KeyAt(i), key) == 0) {
-      result -> push_back(leafPage -> ValueAt(i));
-      found = true;
-    }
-  }
-
-  buffer_pool_manager_ -> UnpinPage(page_id, false);
-  return found;
+  return bptPage -> GetPageId();
 }
-
 
 /*****************************************************************************
  * INSERTION
@@ -92,18 +101,96 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
     root_page_id_ = page_id;
     UpdateRootPageId(1);
 
-    BPlusTreeLeafPage<KeyType, ValueType, KeyComparator> leafPage;
-    leafPage.Init(page_id, page_id, leaf_max_size_);
-    leafPage.SetMappingAt(0, key, value);
-    leafPage.IncreaseSize(1);
-    leafPage.WriteToPage(page -> GetData());
+    BPlusTreeLeafPage<KeyType, ValueType, KeyComparator>* leafPage = reinterpret_cast<BPlusTreeLeafPage<KeyType, ValueType, KeyComparator>*> (page->GetData());;
+    leafPage -> Init(page_id, page_id, leaf_max_size_);
+    leafPage -> SetMappingAt(0, key, value);
+    leafPage -> IncreaseSize(1);
     buffer_pool_manager_ -> UnpinPage(page_id, true);
     return true;
   }
 
+  page_id_t leaf_page_id = GetLeafPage(key);
+  Page* page = buffer_pool_manager_ -> FetchPage(leaf_page_id);
+  auto leafPage = reinterpret_cast<BPlusTreeLeafPage<KeyType, ValueType, KeyComparator>*> (page->GetData());
+  
+  // Find out if inserting a duplicate key
+  int sz = leafPage -> GetSize();
+  for (int i=0; i<sz; i++) {
+    if (comparator_(leafPage -> KeyAt(i), key) == 0) {
+      buffer_pool_manager_ -> UnpinPage(leafPage->GetPageId(), false);
+      return false;
+    }
+  }
 
+  InsertInLeaf(leafPage, key, value);
+  if (leafPage -> GetSize() + 1 < leaf_max_size_) {
+    leafPage -> IncreaseSize(1);
+  } else {
+    int middle = leaf_max_size_/2;
+
+    page_id_t page_id;
+    Page* page = buffer_pool_manager_ -> NewPage(&page_id);    
+    BPlusTreeLeafPage<KeyType, ValueType, KeyComparator>* newLeafPage = reinterpret_cast<BPlusTreeLeafPage<KeyType, ValueType, KeyComparator>*> (page->GetData());;
+    newLeafPage -> Init(page_id, leafPage->GetParentPageId(), leaf_max_size_);
+    leafPage -> SetNextPageId(page_id);
+
+    leafPage -> SetSize(middle);
+    newLeafPage -> SetSize(leaf_max_size_-middle);
+
+    for (int i=0; i<leaf_max_size_-middle; i++) {
+      newLeafPage -> SetMappingAt(i, leafPage -> KeyAt(middle+i), leafPage -> ValueAt(middle+i));
+    }
+
+    InsertInParent(leafPage, newLeafPage, newLeafPage->KeyAt(0));
+    buffer_pool_manager_ -> UnpinPage(page_id, true);
+    // ToString(leafPage, buffer_pool_manager_);
+    // ToString(newLeafPage, buffer_pool_manager_);
+  }
+  
+  buffer_pool_manager_ -> UnpinPage(leaf_page_id, true);
   return true;
 }
+
+INDEX_TEMPLATE_ARGUMENTS
+void BPLUSTREE_TYPE::InsertInLeaf(BPlusTreeLeafPage<KeyType, ValueType, KeyComparator>* leafPage, 
+const KeyType &key, const ValueType &value) {
+  int sz = leafPage -> GetSize();
+
+  for (int i=0; i<sz; i++) {
+     if (comparator_(leafPage -> KeyAt(i), key) == -1) {
+      // Insert here and re-place all the key-value pairs after this position
+      MappingType copy[sz];
+      MappingType* arr = leafPage -> GetData();
+      for (int j=0; j<sz; j++) {
+        copy[j] = arr[j];
+      }
+
+      arr[i] = MappingType(key, value);
+      for (int j=i+1; j<sz+1; j++) {
+        arr[j] = copy[j-1];
+      }
+    }
+  }
+
+}
+
+INDEX_TEMPLATE_ARGUMENTS
+void BPLUSTREE_TYPE::InsertInParent(BPlusTreePage* leftPage, BPlusTreePage* rightPage, const KeyType &key) {
+  if (leftPage -> IsRootPage()) {
+    page_id_t page_id;
+    Page* page = buffer_pool_manager_ -> NewPage(&page_id);    
+    auto rootPage = reinterpret_cast<BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator>*> (page->GetData());;
+    rootPage -> Init(page_id, page_id, internal_max_size_);
+    rootPage -> SetMappingAt(0, key, leftPage -> GetPageId());
+    rootPage -> SetMappingAt(1, key, rightPage -> GetPageId());
+    rootPage -> SetSize(2);
+    root_page_id_ = page_id;
+    UpdateRootPageId(0);
+    buffer_pool_manager_ -> UnpinPage(page_id, true);    
+  }
+
+}
+
 
 /*****************************************************************************
  * REMOVE

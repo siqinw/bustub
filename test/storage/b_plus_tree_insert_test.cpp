@@ -54,6 +54,7 @@ TEST(BPlusTreeTests, InsertTest1) {
   auto root_as_leaf = reinterpret_cast<BPlusTreeLeafPage<GenericKey<8>, RID, GenericComparator<8>> *>(root_page);
   ASSERT_EQ(root_as_leaf->GetSize(), 1);
   ASSERT_EQ(comparator(root_as_leaf->KeyAt(0), index_key), 0);
+  ASSERT_EQ(root_as_leaf->ValueAt(0), rid);
 
   bpm->UnpinPage(root_page_id, false);
   bpm->UnpinPage(HEADER_PAGE_ID, true);
@@ -64,7 +65,7 @@ TEST(BPlusTreeTests, InsertTest1) {
   remove("test.log");
 }
 
-TEST(BPlusTreeTests, DISABLED_InsertTest2) {
+TEST(BPlusTreeTests, InsertTest2) {
   // create KeyComparator and index schema
   auto key_schema = ParseCreateStatement("a bigint");
   GenericComparator<8> comparator(key_schema.get());
@@ -83,7 +84,8 @@ TEST(BPlusTreeTests, DISABLED_InsertTest2) {
   auto header_page = bpm->NewPage(&page_id);
   (void)header_page;
 
-  std::vector<int64_t> keys = {1, 2, 3, 4, 5};
+  // std::vector<int64_t> keys = {1, 2, 3, 4, 5};
+  std::vector<int64_t> keys = {1, 2};
   for (auto key : keys) {
     int64_t value = key & 0xFFFFFFFF;
     rid.Set(static_cast<int32_t>(key >> 32), value);

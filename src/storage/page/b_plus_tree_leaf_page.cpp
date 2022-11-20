@@ -34,7 +34,6 @@ void B_PLUS_TREE_LEAF_PAGE_TYPE::Init(page_id_t page_id, page_id_t parent_id, in
   parent_page_id_ = parent_id;
   page_id_ = page_id;
   next_page_id_ = INVALID_PAGE_ID;
-  // array_ = calloc(LEAF_PAGE_SIZE, sizeof(MappingType));
 }
 
 /**
@@ -61,6 +60,11 @@ void B_PLUS_TREE_LEAF_PAGE_TYPE::SetMappingAt(int index, const KeyType &key, con
   array_[index].second = value;
 }
 
+INDEX_TEMPLATE_ARGUMENTS
+void B_PLUS_TREE_LEAF_PAGE_TYPE::SetKeyAt(int index, const KeyType &key) {
+  array_[index].first = key;
+}
+
 /*
  * Helper method to get the value associated with input "index"(a.k.a array
  * offset)
@@ -82,6 +86,10 @@ void B_PLUS_TREE_LEAF_PAGE_TYPE::WriteToPage(char* data) {
   memcpy(data+LEAF_PAGE_HEADER_SIZE, array_, sizeof(MappingType) * size_);
 }
 
+INDEX_TEMPLATE_ARGUMENTS
+auto B_PLUS_TREE_LEAF_PAGE_TYPE::GetData() -> MappingType* {
+  return array_;
+}
 
 template class BPlusTreeLeafPage<GenericKey<4>, RID, GenericComparator<4>>;
 template class BPlusTreeLeafPage<GenericKey<8>, RID, GenericComparator<8>>;
