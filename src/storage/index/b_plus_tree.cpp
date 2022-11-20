@@ -68,8 +68,9 @@ auto BPLUSTREE_TYPE::GetLeafPage(const KeyType &key)  -> page_id_t {
     BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator>* internalPage = static_cast<BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator>*> (bptPage);
     int sz = internalPage -> GetSize();
     for (int i=1; i<=sz; i++) {
-      // returns true if lhs < rhs
-      if (i == sz || comparator_(internalPage -> KeyAt(i), key) == -1) {
+      // returns true if lhs > rhs
+      // std:: cout << internalPage -> KeyAt(i) << ", " << key << ", Comparator Output: " << comparator_(internalPage -> KeyAt(i), key) << std::endl;
+      if (i == sz || comparator_(internalPage -> KeyAt(i), key) == 1) {
           buffer_pool_manager_ -> UnpinPage(page_id, false);
           page_id = internalPage -> ValueAt(i-1);
           page = buffer_pool_manager_ -> FetchPage(page_id);
@@ -123,9 +124,8 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
   }
 
   InsertInLeaf(leafPage, key, value);
-  if (leafPage -> GetSize() + 1 < leaf_max_size_) {
-    leafPage -> IncreaseSize(1);
-  } else {
+  if (leafPage -> GetSize() == leaf_max_size_) {
+    // Leaf page full after insert -> split
     int middle = leaf_max_size_/2;
 
     page_id_t page_id;
@@ -143,8 +143,6 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
 
     InsertInParent(leafPage, newLeafPage, newLeafPage->KeyAt(0));
     buffer_pool_manager_ -> UnpinPage(page_id, true);
-    // ToString(leafPage, buffer_pool_manager_);
-    // ToString(newLeafPage, buffer_pool_manager_);
   }
   
   buffer_pool_manager_ -> UnpinPage(leaf_page_id, true);
@@ -156,22 +154,22 @@ void BPLUSTREE_TYPE::InsertInLeaf(BPlusTreeLeafPage<KeyType, ValueType, KeyCompa
 const KeyType &key, const ValueType &value) {
   int sz = leafPage -> GetSize();
 
-  for (int i=0; i<sz; i++) {
-     if (comparator_(leafPage -> KeyAt(i), key) == -1) {
-      // Insert here and re-place all the key-value pairs after this position
-      MappingType copy[sz];
-      MappingType* arr = leafPage -> GetData();
-      for (int j=0; j<sz; j++) {
-        copy[j] = arr[j];
-      }
-
-      arr[i] = MappingType(key, value);
-      for (int j=i+1; j<sz+1; j++) {
-        arr[j] = copy[j-1];
-      }
-    }
+  int i=0;
+  // returns true if lhs > rhs
+  // std:: cout << leafPage -> KeyAt(i) << ", " << key << ", Comparator Output: " << comparator_(leafPage -> KeyAt(i), key) << std::endl;
+  while (i<sz && comparator_(leafPage -> KeyAt(i), key) != 1) {
+    i++;
   }
+  // Insert here and re-place all the key-value pairs after this position
+  MappingType copy[sz];
+  MappingType* arr = leafPage -> GetData();
+  memcpy(copy, arr, sizeof(MappingType)*sz);
 
+  arr[i] = MappingType(key, value);
+  for (int j=i+1; j<sz+1; j++) {
+    arr[j] = copy[j-1];
+  }
+  leafPage -> IncreaseSize(1);
 }
 
 INDEX_TEMPLATE_ARGUMENTS
@@ -179,18 +177,74 @@ void BPLUSTREE_TYPE::InsertInParent(BPlusTreePage* leftPage, BPlusTreePage* righ
   if (leftPage -> IsRootPage()) {
     page_id_t page_id;
     Page* page = buffer_pool_manager_ -> NewPage(&page_id);    
-    auto rootPage = reinterpret_cast<BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator>*> (page->GetData());;
+    auto rootPage = reinterpret_cast<BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator>*> (page->GetData());
     rootPage -> Init(page_id, page_id, internal_max_size_);
     rootPage -> SetMappingAt(0, key, leftPage -> GetPageId());
     rootPage -> SetMappingAt(1, key, rightPage -> GetPageId());
     rootPage -> SetSize(2);
     root_page_id_ = page_id;
     UpdateRootPageId(0);
-    buffer_pool_manager_ -> UnpinPage(page_id, true);    
+    leftPage -> SetParentPageId(page_id);
+    rightPage -> SetParentPageId(page_id);
+    buffer_pool_manager_ -> UnpinPage(page_id, true);
+    return;    
   }
 
+  page_id_t parent_page_id = leftPage -> GetParentPageId();
+  Page* page = buffer_pool_manager_ -> FetchPage(parent_page_id);
+  auto parentPage = reinterpret_cast<BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator>*> (page->GetData());
+  
+  InsertInNonLeaf(parentPage, key, rightPage -> GetPageId());
+
+  if (!parentPage -> IsFull()) {
+    parentPage -> IncreaseSize(1);
+    rightPage -> SetParentPageId(parent_page_id);
+  } else {
+      int middle = internal_max_size_/2;
+
+      page_id_t page_id;
+      Page* page = buffer_pool_manager_ -> NewPage(&page_id);    
+      auto newInternalPage = reinterpret_cast<BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator>*> (page->GetData());;
+      newInternalPage -> Init(page_id, parentPage->GetParentPageId(), internal_max_size_);
+
+      parentPage -> SetSize(middle+1);
+      newInternalPage -> SetSize(internal_max_size_-middle);
+
+      // newInternalPage -> SetMappingAt(0, parentPage -> KeyAt(middle+1), parentPage -> ValueAt(middle+1));
+      for (int i=0; i<internal_max_size_-middle; i++) {
+        newInternalPage -> SetMappingAt(i, parentPage -> KeyAt(middle+1+i), parentPage -> ValueAt(middle+1+i));
+        Page *page = buffer_pool_manager_ -> FetchPage(newInternalPage -> ValueAt(i));
+        auto bptPage = reinterpret_cast<BPlusTreePage*> (page->GetData());
+        bptPage -> SetParentPageId(page_id);
+        buffer_pool_manager_ -> UnpinPage(newInternalPage -> ValueAt(i), true);
+      }
+
+      InsertInParent(parentPage, newInternalPage, parentPage->KeyAt(middle+1));
+      buffer_pool_manager_ -> UnpinPage(page_id, true);
+  }
+  buffer_pool_manager_ -> UnpinPage(parent_page_id, true);
 }
 
+INDEX_TEMPLATE_ARGUMENTS
+void BPLUSTREE_TYPE::InsertInNonLeaf(BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator>* internalPage, 
+const KeyType &key, const page_id_t &value) {
+    int sz = internalPage -> GetSize();
+    int i=0;
+    // returns true if lhs > rhs
+    while (i<sz && comparator_(internalPage -> KeyAt(i), key) <= 0) {
+      i++;
+    }
+    // BUSTUB_ASSERT(comparator_(parentPage -> KeyAt(i), key) == 0, "Left page not found in parent page");
+    // Insert here and re-place all the key-value pairs after this position
+    std::pair<KeyType, page_id_t> copy[sz];
+    std::pair<KeyType, page_id_t>* arr = internalPage -> GetData();
+    memcpy(copy, arr, sizeof(std::pair<KeyType, page_id_t>)*sz);
+
+    arr[i] = std::pair<KeyType, page_id_t>(key, value);
+    for (int j=i+1; j<sz+1; j++) {
+      arr[j] = copy[j-1];
+    }
+}
 
 /*****************************************************************************
  * REMOVE

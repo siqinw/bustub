@@ -93,6 +93,7 @@ class BPlusTree {
   private:
   auto GetLeafPage(const KeyType &key) -> page_id_t;
   void InsertInLeaf(BPlusTreeLeafPage<KeyType, ValueType, KeyComparator>* leafPage, const KeyType &key, const ValueType &value);
+  void InsertInNonLeaf(BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator>* internalPage, const KeyType &key, const page_id_t &value);
   void InsertInParent(BPlusTreePage* leftPage, BPlusTreePage* rightPage, const KeyType &key);
 };
 

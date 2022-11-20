@@ -73,20 +73,6 @@ INDEX_TEMPLATE_ARGUMENTS
 auto B_PLUS_TREE_LEAF_PAGE_TYPE::ValueAt(int index) const -> ValueType { return array_[index].second; }
 
 INDEX_TEMPLATE_ARGUMENTS
-void B_PLUS_TREE_LEAF_PAGE_TYPE::WriteToPage(char* data) {
-  // Copy header
-  memcpy(data, &page_type_, 4);
-  memcpy(data+4, &lsn_, 4);
-  memcpy(data+8, &size_, 4);
-  memcpy(data+12, &max_size_, 4);
-  memcpy(data+16, &parent_page_id_, 4);
-  memcpy(data+20, &page_id_, 4);
-  memcpy(data+24, &next_page_id_, 4);
-  // copy items
-  memcpy(data+LEAF_PAGE_HEADER_SIZE, array_, sizeof(MappingType) * size_);
-}
-
-INDEX_TEMPLATE_ARGUMENTS
 auto B_PLUS_TREE_LEAF_PAGE_TYPE::GetData() -> MappingType* {
   return array_;
 }
