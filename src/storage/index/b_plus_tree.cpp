@@ -125,15 +125,15 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
 
   InsertInLeaf(leafPage, key, value);
   if (leafPage -> GetSize() == leaf_max_size_) {
-    // Leaf page full after insert -> split
-    int middle = leaf_max_size_/2;
-
+    // Create new page
     page_id_t page_id;
     Page* page = buffer_pool_manager_ -> NewPage(&page_id);    
     BPlusTreeLeafPage<KeyType, ValueType, KeyComparator>* newLeafPage = reinterpret_cast<BPlusTreeLeafPage<KeyType, ValueType, KeyComparator>*> (page->GetData());;
     newLeafPage -> Init(page_id, leafPage->GetParentPageId(), leaf_max_size_);
     leafPage -> SetNextPageId(page_id);
+    newLeafPage -> SetNextPageId(leafPage -> GetNextPageId());
 
+    int middle = ceiling(leaf_max_size_);
     leafPage -> SetSize(middle);
     newLeafPage -> SetSize(leaf_max_size_-middle);
 
@@ -200,7 +200,7 @@ void BPLUSTREE_TYPE::InsertInParent(BPlusTreePage* leftPage, BPlusTreePage* righ
     parentPage -> IncreaseSize(1);
     rightPage -> SetParentPageId(parent_page_id);
   } else {
-      int middle = internal_max_size_/2;
+      int middle = ceiling(internal_max_size_);
 
       page_id_t page_id;
       Page* page = buffer_pool_manager_ -> NewPage(&page_id);    
@@ -226,10 +226,10 @@ void BPLUSTREE_TYPE::InsertInParent(BPlusTreePage* leftPage, BPlusTreePage* righ
 }
 
 INDEX_TEMPLATE_ARGUMENTS
-void BPLUSTREE_TYPE::InsertInNonLeaf(BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator>* internalPage, 
+void BPLUSTREE_TYPE::InsertInNonLeaf(BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator>* internalPage,
 const KeyType &key, const page_id_t &value) {
     int sz = internalPage -> GetSize();
-    int i=0;
+    int i=1;
     // returns true if lhs > rhs
     while (i<sz && comparator_(internalPage -> KeyAt(i), key) <= 0) {
       i++;
@@ -244,6 +244,11 @@ const KeyType &key, const page_id_t &value) {
     for (int j=i+1; j<sz+1; j++) {
       arr[j] = copy[j-1];
     }
+}
+
+INDEX_TEMPLATE_ARGUMENTS
+auto BPLUSTREE_TYPE::ceiling(int sz) -> int {
+  return (sz%2 == 0) ? sz/2 : sz/2+1;
 }
 
 /*****************************************************************************

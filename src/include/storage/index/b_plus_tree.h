@@ -95,6 +95,7 @@ class BPlusTree {
   void InsertInLeaf(BPlusTreeLeafPage<KeyType, ValueType, KeyComparator>* leafPage, const KeyType &key, const ValueType &value);
   void InsertInNonLeaf(BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator>* internalPage, const KeyType &key, const page_id_t &value);
   void InsertInParent(BPlusTreePage* leftPage, BPlusTreePage* rightPage, const KeyType &key);
+  auto ceiling(int sz) -> int;
 };
 
 }  // namespace bustub
