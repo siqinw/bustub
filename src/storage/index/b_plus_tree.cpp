@@ -262,7 +262,108 @@ auto BPLUSTREE_TYPE::ceiling(int sz) -> int {
  * necessary.
  */
 INDEX_TEMPLATE_ARGUMENTS
-void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *transaction) {}
+void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *transaction) {
+  if (IsEmpty()) {
+    return;
+  }
+
+  page_id_t leaf_page_id = GetLeafPage(key);
+  Page* page = buffer_pool_manager_ -> FetchPage(leaf_page_id);
+  auto leafPage = reinterpret_cast<BPlusTreeLeafPage<KeyType, ValueType, KeyComparator>*> (page->GetData());
+  
+  RemoveEntryInLeaf(key, leafPage);
+  buffer_pool_manager_ -> UnpinPage(leaf_page_id, true);
+}
+
+
+INDEX_TEMPLATE_ARGUMENTS
+void BPLUSTREE_TYPE::RemoveEntryInLeaf(const KeyType &key, BPlusTreeLeafPage<KeyType, ValueType, KeyComparator>* leafPage) {
+  auto arr = leafPage -> GetData();
+  int sz = leafPage -> GetSize();  
+  int i = 0;
+  while (i<sz && comparator_(arr[i].first, key)!=0) {
+    i++;
+  }
+  for ( ;i<sz; i++) {
+    arr[i] = arr[i+1];  
+  }
+  leafPage -> SetSize(--sz);
+
+  if (leafPage -> IsRootPage() && sz == 1) {
+    root_page_id_ = leafPage -> GetPageId();
+    UpdateRootPageId(0);
+  } else if (sz < ceiling(leaf_max_size_)) {
+    KeyType middleKey;
+    page_id_t sibling;
+    Page* page = buffer_pool_manager_ -> FetchPage(leafPage -> GetParentPageId());
+    auto parentPage = reinterpret_cast<BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator>*> (page->GetData());
+  
+    bool isNext = GetPrevOrNextSibiling(parentPage, sibling, key, middleKey);
+    Page* sibPage = buffer_pool_manager_ -> FetchPage(sibling);
+    auto siblingPage = reinterpret_cast<BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator>*> (sibPage->GetData());
+  
+    if (sz + siblingPage -> GetSize() <= leaf_max_size_) {
+      if (isNext) {
+        // swap 
+
+      }
+
+
+      RemoveEntryInNonLeaf(middleKey, parentPage);
+      // delete this node
+
+      buffer_pool_manager_ -> UnpinPage(leafPage -> GetParentPageId(), true);
+    } else {
+
+    }
+  }
+}
+
+INDEX_TEMPLATE_ARGUMENTS
+bool BPLUSTREE_TYPE::GetPrevOrNextSibiling(BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator>* parentPage, 
+  page_id_t& sibling, const KeyType& key, KeyType& middleKey) {
+    auto arr = parentPage -> GetData();
+    middleKey = arr[1].first;
+    sibling = arr[1].second;
+    return true;
+  }
+
+INDEX_TEMPLATE_ARGUMENTS
+void BPLUSTREE_TYPE::RemoveEntryInNonLeaf(const KeyType &key, BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator>* internalPage) {
+  auto arr = internalPage -> GetData();
+  int sz = internalPage -> GetSize();
+
+  int i = 1;
+  while (i<sz && comparator_(arr[i].first, key) != 0) {
+    i++;
+  }
+  for ( ;i<sz; i++) {
+    arr[i] = arr[i+1];  
+  }
+  internalPage -> SetSize(--sz);
+
+  if (internalPage -> IsRootPage() && sz == 1) {
+    root_page_id_ = internalPage -> ValueAt(0);
+    UpdateRootPageId(0);
+  } else if (sz < ceiling(internal_max_size_)) {
+    // KeyType middleKey;
+    // BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator>* sibling;
+    // bool isPrevious = GetPrevOrNextSibiling(internalPage, sibling, middleKey);
+
+    // if (sz + sibling -> GetSize() <= internal_max_size_) {
+    //   if (isPrevious) {
+    //     // swap 
+    //   }
+
+    //   Page* page = buffer_pool_manager_ -> FetchPage(internalPage -> GetParentId());
+    //   auto parentPage = reinterpret_cast<BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator>*> (page->GetData());
+  
+    //   RemoveEntryInNonLeaf(key, parentPage);
+    //   // delete this node
+    } else {
+
+    }
+}
 
 /*****************************************************************************
  * INDEX ITERATOR
