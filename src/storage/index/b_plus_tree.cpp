@@ -300,19 +300,22 @@ void BPLUSTREE_TYPE::RemoveEntryInLeaf(const KeyType &key, BPlusTreeLeafPage<Key
   
     bool isNext = GetPrevOrNextSibiling(parentPage, sibling, key, middleKey);
     Page* sibPage = buffer_pool_manager_ -> FetchPage(sibling);
-    auto siblingPage = reinterpret_cast<BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator>*> (sibPage->GetData());
+    auto siblingPage = reinterpret_cast<BPlusTreeLeafPage<KeyType, ValueType, KeyComparator>*> (sibPage->GetData());
   
     if (sz + siblingPage -> GetSize() <= leaf_max_size_) {
       if (isNext) {
         // swap 
-
+        BPlusTreeLeafPage<KeyType, ValueType, KeyComparator>* tmp = leafPage;
+        leafPage = siblingPage;
+        siblingPage = tmp;
       }
-
-
+      siblingPage -> IncreaseSize(leafPage->GetSize());
+      siblingPage -> SetNextPageId(leafPage->GetNextPageId());
+      memcpy(siblingPage->GetData()+(siblingPage->GetSize()*sizeof(MappingType)), leafPage->GetData(), leafPage->GetSize());
+      
       RemoveEntryInNonLeaf(middleKey, parentPage);
-      // delete this node
-
       buffer_pool_manager_ -> UnpinPage(leafPage -> GetParentPageId(), true);
+      buffer_pool_manager_ -> UnpinPage(sibling, true);
     } else {
 
     }
@@ -322,10 +325,24 @@ void BPLUSTREE_TYPE::RemoveEntryInLeaf(const KeyType &key, BPlusTreeLeafPage<Key
 INDEX_TEMPLATE_ARGUMENTS
 bool BPLUSTREE_TYPE::GetPrevOrNextSibiling(BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator>* parentPage, 
   page_id_t& sibling, const KeyType& key, KeyType& middleKey) {
+    bool isNext = true;
     auto arr = parentPage -> GetData();
-    middleKey = arr[1].first;
-    sibling = arr[1].second;
-    return true;
+    int i = 1, sz = parentPage -> GetSize();
+    while (i < sz && comparator_(arr[i].first, key) <= 0) {
+      i++;
+    }
+
+    // If key is largest in parent node
+    if (i == sz) {
+      middleKey = arr[sz-2].first;
+      sibling = arr[sz-2].second;
+      isNext = false;
+    } else {
+      middleKey = arr[i].first;
+      sibling = arr[i].second;
+    }
+
+    return isNext;
   }
 
 INDEX_TEMPLATE_ARGUMENTS
@@ -346,23 +363,33 @@ void BPLUSTREE_TYPE::RemoveEntryInNonLeaf(const KeyType &key, BPlusTreeInternalP
     root_page_id_ = internalPage -> ValueAt(0);
     UpdateRootPageId(0);
   } else if (sz < ceiling(internal_max_size_)) {
-    // KeyType middleKey;
-    // BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator>* sibling;
-    // bool isPrevious = GetPrevOrNextSibiling(internalPage, sibling, middleKey);
-
-    // if (sz + sibling -> GetSize() <= internal_max_size_) {
-    //   if (isPrevious) {
-    //     // swap 
-    //   }
-
-    //   Page* page = buffer_pool_manager_ -> FetchPage(internalPage -> GetParentId());
-    //   auto parentPage = reinterpret_cast<BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator>*> (page->GetData());
+    KeyType middleKey;
+    page_id_t sibling;
+    Page* page = buffer_pool_manager_ -> FetchPage(internalPage -> GetParentPageId());
+    auto parentPage = reinterpret_cast<BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator>*> (page->GetData());
   
-    //   RemoveEntryInNonLeaf(key, parentPage);
-    //   // delete this node
+    bool isNext = GetPrevOrNextSibiling(parentPage, sibling, key, middleKey);
+    Page* sibPage = buffer_pool_manager_ -> FetchPage(sibling);
+    auto siblingPage = reinterpret_cast<BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator>*> (sibPage->GetData());
+  
+    if (sz + siblingPage -> GetSize() <= leaf_max_size_) {
+      if (isNext) {
+        // swap 
+        BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator>* tmp = internalPage;
+        internalPage = siblingPage;
+        siblingPage = tmp;
+      }
+      // append K′ and all pointers and values in N to N′
+
+      // siblingPage -> IncreaseSize(sz);
+      // memcpy(siblingPage->GetData()+(siblingPage->GetSize()*sizeof(MappingType)), internalPage->GetData(), sz);
+      RemoveEntryInNonLeaf(middleKey, parentPage);
+      buffer_pool_manager_ -> UnpinPage(internalPage -> GetParentPageId(), true);
+      buffer_pool_manager_ -> UnpinPage(sibling, true);
     } else {
 
     }
+  }
 }
 
 /*****************************************************************************
