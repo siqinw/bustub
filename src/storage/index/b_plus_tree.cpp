@@ -207,19 +207,18 @@ void BPLUSTREE_TYPE::InsertInParent(BPlusTreePage* leftPage, BPlusTreePage* righ
       auto newInternalPage = reinterpret_cast<BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator>*> (page->GetData());;
       newInternalPage -> Init(page_id, parentPage->GetParentPageId(), internal_max_size_);
 
-      parentPage -> SetSize(middle+1);
-      newInternalPage -> SetSize(internal_max_size_-middle);
+      parentPage -> SetSize(middle);
+      newInternalPage -> SetSize(internal_max_size_-middle+1);
 
-      // newInternalPage -> SetMappingAt(0, parentPage -> KeyAt(middle+1), parentPage -> ValueAt(middle+1));
-      for (int i=0; i<internal_max_size_-middle; i++) {
-        newInternalPage -> SetMappingAt(i, parentPage -> KeyAt(middle+1+i), parentPage -> ValueAt(middle+1+i));
+      for (int i=0; i<internal_max_size_-middle+1; i++) {
+        newInternalPage -> SetMappingAt(i, parentPage -> KeyAt(middle+i), parentPage -> ValueAt(middle+i));
         Page *page = buffer_pool_manager_ -> FetchPage(newInternalPage -> ValueAt(i));
         auto bptPage = reinterpret_cast<BPlusTreePage*> (page->GetData());
         bptPage -> SetParentPageId(page_id);
         buffer_pool_manager_ -> UnpinPage(newInternalPage -> ValueAt(i), true);
       }
 
-      InsertInParent(parentPage, newInternalPage, parentPage->KeyAt(middle+1));
+      InsertInParent(parentPage, newInternalPage, parentPage->KeyAt(middle));
       buffer_pool_manager_ -> UnpinPage(page_id, true);
   }
   buffer_pool_manager_ -> UnpinPage(parent_page_id, true);
@@ -311,7 +310,7 @@ void BPLUSTREE_TYPE::RemoveEntryInLeaf(const KeyType &key, BPlusTreeLeafPage<Key
       }
       siblingPage -> IncreaseSize(leafPage->GetSize());
       siblingPage -> SetNextPageId(leafPage->GetNextPageId());
-      memcpy(siblingPage->GetData()+(siblingPage->GetSize()*sizeof(MappingType)), leafPage->GetData(), leafPage->GetSize());
+      memcpy(siblingPage->GetData()+(siblingPage->GetSize()*sizeof(MappingType)), leafPage->GetData(), leafPage->GetSize()*sizeof(MappingType));
       
       RemoveEntryInNonLeaf(middleKey, parentPage);
       buffer_pool_manager_ -> UnpinPage(leafPage -> GetParentPageId(), true);
@@ -372,17 +371,29 @@ void BPLUSTREE_TYPE::RemoveEntryInNonLeaf(const KeyType &key, BPlusTreeInternalP
     Page* sibPage = buffer_pool_manager_ -> FetchPage(sibling);
     auto siblingPage = reinterpret_cast<BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator>*> (sibPage->GetData());
   
-    if (sz + siblingPage -> GetSize() <= leaf_max_size_) {
+    if (sz + siblingPage -> GetSize() <= internal_max_size_) {
       if (isNext) {
         // swap 
         BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator>* tmp = internalPage;
         internalPage = siblingPage;
         siblingPage = tmp;
       }
-      // append K′ and all pointers and values in N to N′
+      
 
-      // siblingPage -> IncreaseSize(sz);
-      // memcpy(siblingPage->GetData()+(siblingPage->GetSize()*sizeof(MappingType)), internalPage->GetData(), sz);
+      auto arr1 = siblingPage -> GetData();
+      auto arr2 = internalPage -> GetData();
+      sz = siblingPage -> GetSize();
+      for (int i=sz; i<sz+internalPage->GetSize(); i++) {
+        arr1[i] = arr2[i-sz];
+        // update parent page id
+        Page *page = buffer_pool_manager_ -> FetchPage(arr2[i-sz].second);
+        auto bptPage = reinterpret_cast<BPlusTreePage*> (page->GetData());
+        bptPage -> SetParentPageId(siblingPage->GetPageId());
+        buffer_pool_manager_ -> UnpinPage(arr2[i-sz].second, true);
+      }
+      arr1[sz].first = middleKey;
+      siblingPage -> IncreaseSize(internalPage->GetSize());
+
       RemoveEntryInNonLeaf(middleKey, parentPage);
       buffer_pool_manager_ -> UnpinPage(internalPage -> GetParentPageId(), true);
       buffer_pool_manager_ -> UnpinPage(sibling, true);
