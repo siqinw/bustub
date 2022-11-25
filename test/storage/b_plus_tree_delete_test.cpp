@@ -39,7 +39,7 @@ TEST(BPlusTreeTests, DeleteTest1) {
   auto header_page = bpm->NewPage(&page_id);
   (void)header_page;
 
-  std::vector<int64_t> keys = {1, 2, 3, 4};
+  std::vector<int64_t> keys = {1, 2, 3, 4, 5};
   for (auto key : keys) {
     int64_t value = key & 0xFFFFFFFF;
     rid.Set(static_cast<int32_t>(key >> 32), value);
@@ -75,6 +75,7 @@ TEST(BPlusTreeTests, DeleteTest1) {
     if (!is_present) {
       EXPECT_NE(std::find(remove_keys.begin(), remove_keys.end(), key), remove_keys.end());
     } else {
+      std::cout << "Found Key " << key << "!!!" << std::endl;
       EXPECT_EQ(rids.size(), 1);
       EXPECT_EQ(rids[0].GetPageId(), 0);
       EXPECT_EQ(rids[0].GetSlotNum(), key);

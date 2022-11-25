@@ -294,10 +294,11 @@ void BPLUSTREE_TYPE::RemoveEntryInLeaf(const KeyType &key, BPlusTreeLeafPage<Key
   } else if (sz < ceiling(leaf_max_size_)) {
     KeyType middleKey;
     page_id_t sibling;
+    int index; // index of middleKey in parent
     Page* page = buffer_pool_manager_ -> FetchPage(leafPage -> GetParentPageId());
     auto parentPage = reinterpret_cast<BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator>*> (page->GetData());
   
-    bool isNext = GetPrevOrNextSibiling(parentPage, sibling, key, middleKey);
+    bool isNext = GetPrevOrNextSibiling(parentPage, sibling, key, middleKey, index);
     Page* sibPage = buffer_pool_manager_ -> FetchPage(sibling);
     auto siblingPage = reinterpret_cast<BPlusTreeLeafPage<KeyType, ValueType, KeyComparator>*> (sibPage->GetData());
   
@@ -310,8 +311,15 @@ void BPLUSTREE_TYPE::RemoveEntryInLeaf(const KeyType &key, BPlusTreeLeafPage<Key
       }
       siblingPage -> IncreaseSize(leafPage->GetSize());
       siblingPage -> SetNextPageId(leafPage->GetNextPageId());
-      memcpy(siblingPage->GetData()+(siblingPage->GetSize()*sizeof(MappingType)), leafPage->GetData(), leafPage->GetSize()*sizeof(MappingType));
+      // memcpy(siblingPage->GetData()+(siblingPage->GetSize()*sizeof(MappingType)), leafPage->GetData(), leafPage->GetSize()*sizeof(MappingType));
       
+      auto arr1 = siblingPage -> GetData();
+      auto arr2 = leafPage -> GetData();
+      sz = siblingPage -> GetSize();
+      for (int i=sz; i<sz+leafPage->GetSize(); i++) {
+        arr1[i] = arr2[i-sz];
+      }
+
       RemoveEntryInNonLeaf(middleKey, parentPage);
       buffer_pool_manager_ -> UnpinPage(leafPage -> GetParentPageId(), true);
       buffer_pool_manager_ -> UnpinPage(sibling, true);
@@ -323,7 +331,7 @@ void BPLUSTREE_TYPE::RemoveEntryInLeaf(const KeyType &key, BPlusTreeLeafPage<Key
 
 INDEX_TEMPLATE_ARGUMENTS
 bool BPLUSTREE_TYPE::GetPrevOrNextSibiling(BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator>* parentPage, 
-  page_id_t& sibling, const KeyType& key, KeyType& middleKey) {
+  page_id_t& sibling, const KeyType& key, KeyType& middleKey, int& index) {
     bool isNext = true;
     auto arr = parentPage -> GetData();
     int i = 1, sz = parentPage -> GetSize();
@@ -333,14 +341,14 @@ bool BPLUSTREE_TYPE::GetPrevOrNextSibiling(BPlusTreeInternalPage<KeyType, page_i
 
     // If key is largest in parent node
     if (i == sz) {
-      middleKey = arr[sz-2].first;
-      sibling = arr[sz-2].second;
+      index = sz-2;
       isNext = false;
     } else {
-      middleKey = arr[i].first;
-      sibling = arr[i].second;
+      index = i;
+      isNext = true;
     }
-
+    middleKey = arr[index].first;
+    sibling = arr[index].second;    
     return isNext;
   }
 
@@ -364,10 +372,11 @@ void BPLUSTREE_TYPE::RemoveEntryInNonLeaf(const KeyType &key, BPlusTreeInternalP
   } else if (sz < ceiling(internal_max_size_)) {
     KeyType middleKey;
     page_id_t sibling;
+    int index; // index of middleKey in parent
     Page* page = buffer_pool_manager_ -> FetchPage(internalPage -> GetParentPageId());
     auto parentPage = reinterpret_cast<BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator>*> (page->GetData());
   
-    bool isNext = GetPrevOrNextSibiling(parentPage, sibling, key, middleKey);
+    bool isNext = GetPrevOrNextSibiling(parentPage, sibling, key, middleKey, index);
     Page* sibPage = buffer_pool_manager_ -> FetchPage(sibling);
     auto siblingPage = reinterpret_cast<BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator>*> (sibPage->GetData());
   
@@ -395,11 +404,27 @@ void BPLUSTREE_TYPE::RemoveEntryInNonLeaf(const KeyType &key, BPlusTreeInternalP
       siblingPage -> IncreaseSize(internalPage->GetSize());
 
       RemoveEntryInNonLeaf(middleKey, parentPage);
-      buffer_pool_manager_ -> UnpinPage(internalPage -> GetParentPageId(), true);
-      buffer_pool_manager_ -> UnpinPage(sibling, true);
-    } else {
 
+    } else {
+      if (isNext) {
+        KeyType firstKey = siblingPage -> KeyAt(1);
+        page_id_t firstPage = siblingPage -> ValueAt(0);
+        // Delete first value and first valid key from sibling page
+        RemoveEntryInNonLeaf(firstKey, siblingPage);
+
+        // Insert the value and middleKey to internal page
+        // InsertInNonLeaf(internalPage, firstValidKey, firstPage);
+        internalPage -> SetMappingAt(internalPage->GetSize(), middleKey, firstPage);
+        internalPage -> IncreaseSize(1);
+
+        parentPage -> SetKeyAt(index, firstKey);
+      } else {
+
+      }
     }
+
+    buffer_pool_manager_ -> UnpinPage(internalPage -> GetParentPageId(), true);
+    buffer_pool_manager_ -> UnpinPage(sibling, true);
   }
 }
 

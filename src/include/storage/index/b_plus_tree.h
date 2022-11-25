@@ -99,7 +99,7 @@ class BPlusTree {
   void RemoveEntryInLeaf(const KeyType &key, BPlusTreeLeafPage<KeyType, ValueType, KeyComparator>* leafPage);
   void RemoveEntryInNonLeaf(const KeyType &key, BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator>* internalPage);
   bool GetPrevOrNextSibiling(BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator>* parentPage, 
-  page_id_t& sibling, const KeyType& key, KeyType& middleKey);
+  page_id_t& sibling, const KeyType& key, KeyType& middleKey, int& index);
 };
 
 }  // namespace bustub
