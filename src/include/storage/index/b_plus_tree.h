@@ -100,6 +100,8 @@ class BPlusTree {
   void RemoveEntryInNonLeaf(const KeyType &key, BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator>* internalPage);
   bool GetPrevOrNextSibiling(BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator>* parentPage, 
   page_id_t& sibling, const KeyType& key, KeyType& middleKey, int& index);
+  void CoalesceNonLeaf(const KeyType &key, BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator>* internalPage);
+
 };
 
 }  // namespace bustub

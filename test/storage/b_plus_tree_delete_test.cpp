@@ -58,7 +58,7 @@ TEST(BPlusTreeTests, DeleteTest1) {
     EXPECT_EQ(rids[0].GetSlotNum(), value);
   }
 
-  std::vector<int64_t> remove_keys = {1};
+  std::vector<int64_t> remove_keys = {1, 5};
   for (auto key : remove_keys) {
     index_key.SetFromInteger(key);
     tree.Remove(index_key, transaction);
@@ -75,7 +75,7 @@ TEST(BPlusTreeTests, DeleteTest1) {
     if (!is_present) {
       EXPECT_NE(std::find(remove_keys.begin(), remove_keys.end(), key), remove_keys.end());
     } else {
-      std::cout << "Found Key " << key << "!!!" << std::endl;
+      std::cout << "Found Key " << key << " !!!" << std::endl;
       EXPECT_EQ(rids.size(), 1);
       EXPECT_EQ(rids[0].GetPageId(), 0);
       EXPECT_EQ(rids[0].GetSlotNum(), key);
