@@ -70,6 +70,7 @@ auto BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) -> Page * {
   ResetPage(page);
   page->page_id_ = *page_id;
   page->pin_count_++;
+  disk_manager_->WritePage(page->GetPageId(), page->GetData());
   // std::cout << "Created New Page " << *page_id << std::endl;
   return page;
 }

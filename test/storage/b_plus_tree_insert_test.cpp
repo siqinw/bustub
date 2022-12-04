@@ -12,6 +12,7 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <cstdlib>
 
 #include "buffer/buffer_pool_manager_instance.h"
 #include "gtest/gtest.h"
@@ -217,11 +218,11 @@ TEST(BPlusTreeTests, InsertScaleTest) {
   auto header_page = bpm->NewPage(&page_id);
   (void)header_page;
 
-  int cycle_num = 300;
+  int cycle_num = 100;
   std::vector<int64_t> keys;
   keys.reserve(cycle_num);
   for (int i = 0; i < cycle_num; i++) {
-    keys.push_back(static_cast<int64_t>(rand())%1000);
+    keys.push_back(static_cast<int64_t>(i));
   }
 
   for (auto key : keys) {
