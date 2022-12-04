@@ -124,22 +124,15 @@ auto BufferPoolManagerInstance::UnpinPgImp(page_id_t page_id, bool is_dirty) -> 
   }
 
   Page *page = &pages_[frame_id];
+  page->is_dirty_ |= is_dirty;
   page->pin_count_--;
   if (page->pin_count_ == 0) {
     replacer_->SetEvictable(frame_id, true);
-  }
-
-  if (!page->is_dirty_) {
-    page->is_dirty_ = is_dirty;
-  } else {
-    // IF dirty page already, then need to compare data in page & in disk
-    char disk_data[4096];
-    disk_manager_->ReadPage(page_id, disk_data);
-    if (strcmp(page->data_, disk_data) == 0) {
+    if (page->is_dirty_) {
+      disk_manager_->WritePage(page_id, page->data_);
       page->is_dirty_ = false;
     }
   }
-
   return true;
 }
 
