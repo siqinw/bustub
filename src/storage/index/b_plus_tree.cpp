@@ -15,7 +15,10 @@ BPLUSTREE_TYPE::BPlusTree(std::string name, BufferPoolManager *buffer_pool_manag
       buffer_pool_manager_(buffer_pool_manager),
       comparator_(comparator),
       leaf_max_size_(leaf_max_size),
-      internal_max_size_(internal_max_size) {}
+      internal_max_size_(internal_max_size) {
+  std::cout << "Leaf Max Size: " << leaf_max_size_ << std::endl;
+  std::cout << "Internal Max Size: " << internal_max_size_ << std::endl;
+}
 
 /*
  * Helper function to decide whether current b+tree is empty
@@ -32,6 +35,7 @@ auto BPLUSTREE_TYPE::IsEmpty() const -> bool { return root_page_id_ == INVALID_P
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result, Transaction *transaction) -> bool {
+  // std::cout << "Get: " << key << std::endl;
   if (IsEmpty()) {
     return false;
   }
@@ -77,7 +81,7 @@ auto BPLUSTREE_TYPE::GetLeafPage(const KeyType &key) -> page_id_t {
       }
     }
   }
-
+  buffer_pool_manager_->UnpinPage(page_id, false);
   return bpt_page->GetPageId();
 }
 
@@ -93,6 +97,7 @@ auto BPLUSTREE_TYPE::GetLeafPage(const KeyType &key) -> page_id_t {
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transaction *transaction) -> bool {
+  // std::cout << "Insert: " << key << ", " << value;
   if (IsEmpty()) {
     // Allocate new page for root page
     page_id_t page_id;
@@ -116,7 +121,7 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
   int sz = leaf_page->GetSize();
   for (int i = 0; i < sz; i++) {
     if (comparator_(leaf_page->KeyAt(i), key) == 0) {
-      buffer_pool_manager_->UnpinPage(leaf_page->GetPageId(), false);
+      buffer_pool_manager_->UnpinPage(leaf_page_id, false);
       return false;
     }
   }
@@ -153,15 +158,12 @@ void BPLUSTREE_TYPE::InsertInLeaf(LeafPage *leaf_page, const KeyType &key, const
 
   int i = 0;
   // returns true if lhs > rhs
-  // std:: cout << leaf_page -> KeyAt(i) << ", " << key << ", Comparator Output: " << comparator_(leaf_page -> KeyAt(i),
-  // key) << std::endl;
   while (i < sz && comparator_(leaf_page->KeyAt(i), key) != 1) {
     i++;
   }
   // Insert here and re-place all the key-value pairs after this position
   MappingType copy[leaf_max_size_];
   MappingType *arr = leaf_page->GetData();
-  // memcpy(copy, arr, sizeof(MappingType) * sz);
   for (int j = 0; j < sz; j++) {
     copy[j] = arr[j];
   }
@@ -237,7 +239,6 @@ void BPLUSTREE_TYPE::InsertInNonLeaf(InternalPage *internal_page, const KeyType 
   // Insert here and re-place all the key-value pairs after this position
   std::pair<KeyType, page_id_t> copy[internal_max_size_];
   std::pair<KeyType, page_id_t> *arr = internal_page->GetData();
-  // memcpy(copy, arr, sizeof(std::pair<KeyType, page_id_t>) * sz);
   for (int j = 0; j < sz; j++) {
     copy[j] = arr[j];
   }
@@ -263,6 +264,7 @@ auto BPLUSTREE_TYPE::Ceiling(int sz) -> int { return (sz % 2 == 0) ? sz / 2 : sz
  */
 INDEX_TEMPLATE_ARGUMENTS
 void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *transaction) {
+  // std::cout << "Remove: " << key << std::endl;
   if (IsEmpty()) {
     return;
   }
@@ -295,7 +297,8 @@ void BPLUSTREE_TYPE::RemoveEntryInLeaf(const KeyType &key, LeafPage *leaf_page) 
     KeyType middle_key;
     page_id_t sibling;
     int index;  // index of middle_key in parent
-    Page *page = buffer_pool_manager_->FetchPage(leaf_page->GetParentPageId());
+    page_id_t parent_id = leaf_page->GetParentPageId();
+    Page *page = buffer_pool_manager_->FetchPage(parent_id);
     auto parent_page = reinterpret_cast<InternalPage *>(page->GetData());
 
     bool is_next = GetPrevOrNextSibiling(parent_page, sibling, key, middle_key, index);
@@ -322,41 +325,39 @@ void BPLUSTREE_TYPE::RemoveEntryInLeaf(const KeyType &key, LeafPage *leaf_page) 
 
       RemoveEntryInNonLeaf(middle_key, parent_page);
 
-      buffer_pool_manager_->UnpinPage(leaf_page->GetParentPageId(), true);
-      buffer_pool_manager_->UnpinPage(sibling, true);
-    } else {
-      // Borrow one node from sibling
-      int sz = sibling_page->GetSize();
-      auto arr = sibling_page->GetData();
-      if (is_next) {
-        KeyType first_key = sibling_page->KeyAt(0);
-        ValueType first_val = sibling_page->ValueAt(0);
-        // Delete first value and first valid key from sibling page
-        for (int i = 0; i < sz - 1; i++) {
-          arr[i] = arr[i + 1];
-        }
-        sibling_page->SetSize(--sz);
-        // if (sz < Ceiling(internal_max_size_)) {
-        // CoalesceNonLeaf(sibling_page);
-        // }
+      // } else {
+      //   // Borrow one node from sibling
+      //   int sz = sibling_page->GetSize();
+      //   auto arr = sibling_page->GetData();
+      //   if (is_next) {
+      //     KeyType first_key = sibling_page->KeyAt(0);
+      //     ValueType first_val = sibling_page->ValueAt(0);
+      //     // Delete first value and first valid key from sibling page
+      //     for (int i = 0; i < sz - 1; i++) {
+      //       arr[i] = arr[i + 1];
+      //     }
+      //     sibling_page->SetSize(--sz);
+      //     // if (sz < Ceiling(internal_max_size_)) {
+      //     // CoalesceNonLeaf(sibling_page);
+      //     // }
 
-        // Insert the value and middle_key to internal page
-        // InsertInNonLeaf(internal_page, first_validKey, first_page);
-        leaf_page->SetMappingAt(leaf_page->GetSize(), first_key, first_val);
-        leaf_page->IncreaseSize(1);
+      //     // Insert the value and middle_key to internal page
+      //     // InsertInNonLeaf(internal_page, first_validKey, first_page);
+      //     leaf_page->SetMappingAt(leaf_page->GetSize(), first_key, first_val);
+      //     leaf_page->IncreaseSize(1);
 
-        parent_page->SetKeyAt(index, first_key);
-      } else {
-        // Delete last value and key from sibling page
-        KeyType last_key = sibling_page->KeyAt(sz);
-        ValueType last_val = sibling_page->ValueAt(sz);
-        RemoveEntryInLeaf(last_key, sibling_page);
-        InsertInLeaf(leaf_page, last_key, last_val);
-        parent_page->SetKeyAt(index + 1, last_key);
-      }
+      //     parent_page->SetKeyAt(index, first_key);
+      //   } else {
+      //     // Delete last value and key from sibling page
+      //     KeyType last_key = sibling_page->KeyAt(sz);
+      //     ValueType last_val = sibling_page->ValueAt(sz);
+      //     RemoveEntryInLeaf(last_key, sibling_page);
+      //     InsertInLeaf(leaf_page, last_key, last_val);
+      //     parent_page->SetKeyAt(index + 1, last_key);
+      //   }
     }
 
-    buffer_pool_manager_->UnpinPage(leaf_page->GetParentPageId(), true);
+    buffer_pool_manager_->UnpinPage(parent_id, true);
     buffer_pool_manager_->UnpinPage(sibling, true);
   }
 }
@@ -415,7 +416,8 @@ void BPLUSTREE_TYPE::CoalesceNonLeaf(const KeyType &key, InternalPage *internal_
   KeyType middle_key;
   page_id_t sibling;
   int index;  // index of middle_key in parent
-  Page *page = buffer_pool_manager_->FetchPage(internal_page->GetParentPageId());
+  page_id_t parent_id = internal_page->GetParentPageId();
+  Page *page = buffer_pool_manager_->FetchPage(parent_id);
   auto parent_page = reinterpret_cast<InternalPage *>(page->GetData());
 
   bool is_next = GetPrevOrNextSibiling(parent_page, sibling, key, middle_key, index);
@@ -446,39 +448,39 @@ void BPLUSTREE_TYPE::CoalesceNonLeaf(const KeyType &key, InternalPage *internal_
 
     RemoveEntryInNonLeaf(middle_key, parent_page);
 
-  } else {
-    // borrow one node from sibling
-    int sz = sibling_page->GetSize();
-    auto arr = sibling_page->GetData();
-    if (is_next) {
-      KeyType first_key = sibling_page->KeyAt(1);
-      page_id_t first_page = sibling_page->ValueAt(0);
-      // Delete first value and first valid key from sibling page
-      for (int i = 0; i < sz - 1; i++) {
-        arr[i] = arr[i + 1];
-      }
-      sibling_page->SetSize(--sz);
-      // if (sz < Ceiling(internal_max_size_)) {
-      // CoalesceNonLeaf(sibling_page);
-      // }
+    // } else {
+    //   // borrow one node from sibling
+    //   int sz = sibling_page->GetSize();
+    //   auto arr = sibling_page->GetData();
+    //   if (is_next) {
+    //     KeyType first_key = sibling_page->KeyAt(1);
+    //     page_id_t first_page = sibling_page->ValueAt(0);
+    //     // Delete first value and first valid key from sibling page
+    //     for (int i = 0; i < sz - 1; i++) {
+    //       arr[i] = arr[i + 1];
+    //     }
+    //     sibling_page->SetSize(--sz);
+    //     // if (sz < Ceiling(internal_max_size_)) {
+    //     // CoalesceNonLeaf(sibling_page);
+    //     // }
 
-      // Insert the value and middle_key to internal page
-      // InsertInNonLeaf(internal_page, first_validKey, first_page);
-      internal_page->SetMappingAt(internal_page->GetSize(), middle_key, first_page);
-      internal_page->IncreaseSize(1);
+    //     // Insert the value and middle_key to internal page
+    //     // InsertInNonLeaf(internal_page, first_validKey, first_page);
+    //     internal_page->SetMappingAt(internal_page->GetSize(), middle_key, first_page);
+    //     internal_page->IncreaseSize(1);
 
-      parent_page->SetKeyAt(index, first_key);
-    } else {
-      // Delete last value and key from sibling page
-      KeyType last_key = sibling_page->KeyAt(sz);
-      page_id_t last_page = sibling_page->ValueAt(sz);
-      RemoveEntryInNonLeaf(last_key, sibling_page);
-      InsertInNonLeaf(internal_page, last_key, last_page);
-      parent_page->SetKeyAt(index + 1, last_key);
-    }
+    //     parent_page->SetKeyAt(index, first_key);
+    //   } else {
+    //     // Delete last value and key from sibling page
+    //     KeyType last_key = sibling_page->KeyAt(sz);
+    //     page_id_t last_page = sibling_page->ValueAt(sz);
+    //     RemoveEntryInNonLeaf(last_key, sibling_page);
+    //     InsertInNonLeaf(internal_page, last_key, last_page);
+    //     parent_page->SetKeyAt(index + 1, last_key);
+    //   }
   }
 
-  buffer_pool_manager_->UnpinPage(internal_page->GetParentPageId(), true);
+  buffer_pool_manager_->UnpinPage(parent_id, true);
   buffer_pool_manager_->UnpinPage(sibling, true);
 }
 
@@ -510,7 +512,7 @@ auto BPLUSTREE_TYPE::FindMinLeaf() -> page_id_t {
     page = buffer_pool_manager_->FetchPage(page_id);
     bpt_page = reinterpret_cast<BPlusTreePage *>(page->GetData());
   }
-
+  buffer_pool_manager_->UnpinPage(page_id, false);
   return bpt_page->GetPageId();
 }
 
