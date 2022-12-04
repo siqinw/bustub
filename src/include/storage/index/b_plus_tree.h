@@ -90,20 +90,19 @@ class BPlusTree {
   int leaf_max_size_;
   int internal_max_size_;
 
-  private:
+ private:
   auto GetLeafPage(const KeyType &key) -> page_id_t;
-  void InsertInLeaf(BPlusTreeLeafPage<KeyType, ValueType, KeyComparator>* leafPage, const KeyType &key, const ValueType &value);
-  void InsertInNonLeaf(BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator>* internalPage, const KeyType &key, const page_id_t &value);
-  void InsertInParent(BPlusTreePage* leftPage, BPlusTreePage* rightPage, const KeyType &key);
-  auto ceiling(int sz) -> int;
-  void RemoveEntryInLeaf(const KeyType &key, BPlusTreeLeafPage<KeyType, ValueType, KeyComparator>* leafPage);
-  void RemoveEntryInNonLeaf(const KeyType &key, BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator>* internalPage);
-  bool GetPrevOrNextSibiling(BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator>* parentPage, 
-  page_id_t& sibling, const KeyType& key, KeyType& middleKey, int& index);
-  void CoalesceNonLeaf(const KeyType &key, BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator>* internalPage);
+  void InsertInLeaf(LeafPage *leaf_page, const KeyType &key, const ValueType &value);
+  void InsertInNonLeaf(InternalPage *internal_page, const KeyType &key, const page_id_t &value);
+  void InsertInParent(BPlusTreePage *left_page, BPlusTreePage *right_page, const KeyType &key);
+  auto Ceiling(int sz) -> int;
+  void RemoveEntryInLeaf(const KeyType &key, LeafPage *leaf_page);
+  void RemoveEntryInNonLeaf(const KeyType &key, InternalPage *internal_page);
+  auto GetPrevOrNextSibiling(InternalPage *parent_page, page_id_t &sibling, const KeyType &key, KeyType &middle_key,
+                             int &index) -> bool;
+  void CoalesceNonLeaf(const KeyType &key, InternalPage *internal_page);
   auto GetIndex(page_id_t page_id, const KeyType &key) -> int;
   auto FindMinLeaf() -> page_id_t;
-
 };
 
 }  // namespace bustub

@@ -36,13 +36,13 @@ class IndexIterator {
 
   auto operator!=(const IndexIterator &itr) const -> bool;
 
-  void GetParam(page_id_t& page_id, int& offset) const; 
+  void GetParam(page_id_t &page_id, int &offset) const;
 
  private:
   // add your own private member variables here
   page_id_t page_id_;
   int offset_;
-  MappingType m;
+  MappingType m_;
   BufferPoolManager *buffer_pool_manager_;
 };
 
