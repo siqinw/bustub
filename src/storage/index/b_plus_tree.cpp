@@ -124,14 +124,14 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
   }
 
   InsertInLeaf(leafPage, key, value);
-  if (leafPage -> GetSize() == leaf_max_size_) {
+  if (leafPage -> GetSize() >= leaf_max_size_) {
     // Create new page
     page_id_t page_id;
     Page* page = buffer_pool_manager_ -> NewPage(&page_id);    
     BPlusTreeLeafPage<KeyType, ValueType, KeyComparator>* newLeafPage = reinterpret_cast<BPlusTreeLeafPage<KeyType, ValueType, KeyComparator>*> (page->GetData());;
     newLeafPage -> Init(page_id, leafPage->GetParentPageId(), leaf_max_size_);
-    leafPage -> SetNextPageId(page_id);
     newLeafPage -> SetNextPageId(leafPage -> GetNextPageId());
+    leafPage -> SetNextPageId(page_id);
 
     int middle = ceiling(leaf_max_size_);
     leafPage -> SetSize(middle);
@@ -482,6 +482,37 @@ void BPLUSTREE_TYPE::CoalesceNonLeaf(const KeyType &key, BPlusTreeInternalPage<K
     buffer_pool_manager_ -> UnpinPage(sibling, true);
 }
 
+INDEX_TEMPLATE_ARGUMENTS
+auto BPLUSTREE_TYPE::GetIndex(page_id_t page_id, const KeyType &key) -> int {
+  Page* page = buffer_pool_manager_ -> FetchPage(page_id);
+  auto leafPage = reinterpret_cast<BPlusTreeLeafPage<KeyType, ValueType, KeyComparator>*> (page->GetData());
+  auto arr = leafPage -> GetData();
+  int size = leafPage -> GetSize();
+  for (int i=0; i<size; i++) {
+    if (comparator_(arr[i].first,key) == 0)
+      return i;
+  }
+  return -1;
+}
+
+INDEX_TEMPLATE_ARGUMENTS
+auto BPLUSTREE_TYPE::FindMinLeaf() -> page_id_t {
+  page_id_t page_id = root_page_id_;
+  Page* page = buffer_pool_manager_ -> FetchPage(page_id);
+  auto bptPage = reinterpret_cast<BPlusTreePage*> (page->GetData());
+  
+  while (!bptPage -> IsLeafPage()) {
+    // Search in internal pages until reach a leaf page
+    BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator>* internalPage = static_cast<BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator>*> (bptPage);
+    buffer_pool_manager_ -> UnpinPage(page_id, false);
+    page_id = internalPage -> ValueAt(0);
+    page = buffer_pool_manager_ -> FetchPage(page_id);
+    bptPage = reinterpret_cast<BPlusTreePage*> (page->GetData());
+  }
+
+  return bptPage -> GetPageId();
+}
+
 /*****************************************************************************
  * INDEX ITERATOR
  *****************************************************************************/
@@ -491,7 +522,10 @@ void BPLUSTREE_TYPE::CoalesceNonLeaf(const KeyType &key, BPlusTreeInternalPage<K
  * @return : index iterator
  */
 INDEX_TEMPLATE_ARGUMENTS
-auto BPLUSTREE_TYPE::Begin() -> INDEXITERATOR_TYPE { return INDEXITERATOR_TYPE(); }
+auto BPLUSTREE_TYPE::Begin() -> INDEXITERATOR_TYPE {
+  page_id_t page_id = FindMinLeaf();
+  return INDEXITERATOR_TYPE(page_id, 0, buffer_pool_manager_);
+}
 
 /*
  * Input parameter is low key, find the leaf page that contains the input key
@@ -499,7 +533,11 @@ auto BPLUSTREE_TYPE::Begin() -> INDEXITERATOR_TYPE { return INDEXITERATOR_TYPE()
  * @return : index iterator
  */
 INDEX_TEMPLATE_ARGUMENTS
-auto BPLUSTREE_TYPE::Begin(const KeyType &key) -> INDEXITERATOR_TYPE { return INDEXITERATOR_TYPE(); }
+auto BPLUSTREE_TYPE::Begin(const KeyType &key) -> INDEXITERATOR_TYPE { 
+  page_id_t page_id = GetLeafPage(key);
+  int index = GetIndex(page_id, key);
+  return INDEXITERATOR_TYPE(page_id, index, buffer_pool_manager_);
+}
 
 /*
  * Input parameter is void, construct an index iterator representing the end
@@ -507,7 +545,9 @@ auto BPLUSTREE_TYPE::Begin(const KeyType &key) -> INDEXITERATOR_TYPE { return IN
  * @return : index iterator
  */
 INDEX_TEMPLATE_ARGUMENTS
-auto BPLUSTREE_TYPE::End() -> INDEXITERATOR_TYPE { return INDEXITERATOR_TYPE(); }
+auto BPLUSTREE_TYPE::End() -> INDEXITERATOR_TYPE {
+  return INDEXITERATOR_TYPE(INVALID_PAGE_ID, 0, buffer_pool_manager_); 
+}
 
 /**
  * @return Page id of the root of this tree

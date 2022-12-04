@@ -101,6 +101,8 @@ class BPlusTree {
   bool GetPrevOrNextSibiling(BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator>* parentPage, 
   page_id_t& sibling, const KeyType& key, KeyType& middleKey, int& index);
   void CoalesceNonLeaf(const KeyType &key, BPlusTreeInternalPage<KeyType, page_id_t, KeyComparator>* internalPage);
+  auto GetIndex(page_id_t page_id, const KeyType &key) -> int;
+  auto FindMinLeaf() -> page_id_t;
 
 };
 
