@@ -130,7 +130,7 @@ auto BufferPoolManagerInstance::UnpinPgImp(page_id_t page_id, bool is_dirty) -> 
     replacer_->SetEvictable(frame_id, true);
     if (page->is_dirty_) {
       disk_manager_->WritePage(page_id, page->data_);
-      page->is_dirty_ = false;
+      // page->is_dirty_ = false;
     }
   }
   return true;
