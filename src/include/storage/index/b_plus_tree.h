@@ -89,9 +89,15 @@ class BPlusTree {
   KeyComparator comparator_;
   int leaf_max_size_;
   int internal_max_size_;
+  
+  enum class Operation {
+    SEARCH,
+    INSERT,
+    DELETE
+  };
 
  private:
-  auto GetLeafPage(const KeyType &key) -> page_id_t;
+  auto GetLeafPage(const KeyType &key, Operation operation, Transaction *transaction) -> Page*;
   void InsertInLeaf(LeafPage *leaf_page, const KeyType &key, const ValueType &value);
   void InsertInNonLeaf(InternalPage *internal_page, const KeyType &key, const page_id_t &value);
   void InsertInParent(BPlusTreePage *left_page, BPlusTreePage *right_page, const KeyType &key);
@@ -101,8 +107,11 @@ class BPlusTree {
   auto GetPrevOrNextSibiling(InternalPage *parent_page, page_id_t &sibling, const KeyType &key, KeyType &middle_key,
                              int &index) -> bool;
   void CoalesceNonLeaf(const KeyType &key, InternalPage *internal_page);
-  auto GetIndex(page_id_t page_id, const KeyType &key) -> int;
+  auto GetIndex(Page* page, const KeyType &key) -> int;
   auto FindMinLeaf() -> page_id_t;
+
+  std::mutex root_lock_;
+
 };
 
 }  // namespace bustub

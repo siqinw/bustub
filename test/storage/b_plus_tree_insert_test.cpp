@@ -21,7 +21,7 @@
 
 namespace bustub {
 
-TEST(BPlusTreeTests, DISABLED_InsertTest1) {
+TEST(BPlusTreeTests, InsertTest1) {
   // create KeyComparator and index schema
   auto key_schema = ParseCreateStatement("a bigint");
   GenericComparator<8> comparator(key_schema.get());
@@ -66,7 +66,7 @@ TEST(BPlusTreeTests, DISABLED_InsertTest1) {
   remove("test.log");
 }
 
-TEST(BPlusTreeTests, DISABLED_InsertTest2) {
+TEST(BPlusTreeTests, InsertTest2) {
   // create KeyComparator and index schema
   auto key_schema = ParseCreateStatement("a bigint");
   GenericComparator<8> comparator(key_schema.get());
@@ -98,7 +98,7 @@ TEST(BPlusTreeTests, DISABLED_InsertTest2) {
   for (auto key : keys) {
     rids.clear();
     index_key.SetFromInteger(key);
-    tree.GetValue(index_key, &rids);
+    tree.GetValue(index_key, &rids, transaction);
     EXPECT_EQ(rids.size(), 1);
     int64_t value = key & 0xFFFFFFFF;
     EXPECT_EQ(rids[0].GetSlotNum(), value);
@@ -110,7 +110,7 @@ TEST(BPlusTreeTests, DISABLED_InsertTest2) {
   for (auto key : keys) {
     rids.clear();
     index_key.SetFromInteger(key);
-    is_present = tree.GetValue(index_key, &rids);
+    is_present = tree.GetValue(index_key, &rids, transaction);
 
     EXPECT_EQ(is_present, true);
     EXPECT_EQ(rids.size(), 1);
@@ -129,7 +129,7 @@ TEST(BPlusTreeTests, DISABLED_InsertTest2) {
   remove("test.log");
 }
 
-TEST(BPlusTreeTests, DISABLED_InsertTest3) {
+TEST(BPlusTreeTests, InsertTest3) {
   // create KeyComparator and index schema
   auto key_schema = ParseCreateStatement("a bigint");
   GenericComparator<8> comparator(key_schema.get());
@@ -162,7 +162,7 @@ TEST(BPlusTreeTests, DISABLED_InsertTest3) {
   for (auto key : keys) {
     rids.clear();
     index_key.SetFromInteger(key);
-    tree.GetValue(index_key, &rids);
+    tree.GetValue(index_key, &rids, transaction);
     EXPECT_EQ(rids.size(), 1);
 
     int64_t value = key & 0xFFFFFFFF;
@@ -218,11 +218,11 @@ TEST(BPlusTreeTests, InsertScaleTest) {
   auto header_page = bpm->NewPage(&page_id);
   (void)header_page;
 
-  int cycle_num = 1000;
+  int cycle_num = 100;
   std::vector<int64_t> keys;
   keys.reserve(cycle_num);
   for (int i = 0; i < cycle_num; i++) {
-    keys.push_back(static_cast<int64_t>(rand()%cycle_num));
+    keys.push_back(static_cast<int64_t>(i));
   }
 
   for (auto key : keys) {
@@ -239,7 +239,7 @@ TEST(BPlusTreeTests, InsertScaleTest) {
   for (auto key : keys) {
     rids.clear();
     index_key.SetFromInteger(key);
-    is_present = tree.GetValue(index_key, &rids);
+    is_present = tree.GetValue(index_key, &rids, transaction);
 
     EXPECT_EQ(is_present, true);
     EXPECT_EQ(rids.size(), 1);
