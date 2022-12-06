@@ -329,6 +329,24 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *transaction) {
   auto leaf_page = reinterpret_cast<LeafPage *>(page->GetData());
   auto page_set = transaction->GetPageSet();
 
+  // Find out if removing a non-exist key
+  bool exist = false;
+  int sz = leaf_page->GetSize();
+  for (int i = 0; i < sz; i++) {
+    if (comparator_(leaf_page->KeyAt(i), key) == 0) {
+      exist = true;
+      break;
+    }
+  }
+  if (!exist) {
+    for (auto page : *page_set) {
+      page->WUnlatch();
+      buffer_pool_manager_->UnpinPage(page->GetPageId(), false);
+    }
+    page_set->clear();
+    return;
+  }
+
   RemoveEntryInLeaf(key, leaf_page, transaction);
 
   for (auto p : *page_set) {

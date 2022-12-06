@@ -23,7 +23,7 @@
 namespace bustub {
 // helper function to launch multiple threads
 template <typename... Args>
-void LaunchParallelTest(uint64_t num_threads, Args &&...args) {
+void LaunchParallelTest(uint64_t num_threads, Args &&... args) {
   std::vector<std::thread> thread_group;
 
   // Launch a group of threads
@@ -312,10 +312,10 @@ TEST(BPlusTreeConcurrentTest, MixTest) {
   for (int i = 6; i <= 10; i++) {
     keys.push_back(i);
   }
-  LaunchParallelTest(1, InsertHelper, &tree, keys);
+  LaunchParallelTest(2, InsertHelper, &tree, keys);
   // concurrent delete
   std::vector<int64_t> remove_keys = {1, 4, 3, 5, 6};
-  LaunchParallelTest(1, DeleteHelper, &tree, remove_keys);
+  LaunchParallelTest(2, DeleteHelper, &tree, remove_keys);
 
   int64_t start_key = 2;
   int64_t size = 0;
