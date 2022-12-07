@@ -13,6 +13,7 @@
 #include <chrono>  // NOLINT
 #include <cstdio>
 #include <functional>
+#include <random>
 #include <thread>  // NOLINT
 
 #include "buffer/buffer_pool_manager_instance.h"
@@ -23,7 +24,7 @@
 namespace bustub {
 // helper function to launch multiple threads
 template <typename... Args>
-void LaunchParallelTest(uint64_t num_threads, Args &&... args) {
+void LaunchParallelTest(uint64_t num_threads, Args &&...args) {
   std::vector<std::thread> thread_group;
 
   // Launch a group of threads
@@ -71,6 +72,20 @@ void InsertHelperSplit(BPlusTree<GenericKey<8>, RID, GenericComparator<8>> *tree
   delete transaction;
 }
 
+// helper function to seperate insert
+void InsertKey(BPlusTree<GenericKey<8>, RID, GenericComparator<8>> *tree, const int64_t key,
+               __attribute__((unused)) uint64_t thread_itr) {
+  GenericKey<8> index_key;
+  RID rid;
+  // create transaction
+  auto *transaction = new Transaction(0);
+  int64_t value = key & 0xFFFFFFFF;
+  rid.Set(static_cast<int32_t>(key >> 32), value);
+  index_key.SetFromInteger(key);
+  tree->Insert(index_key, rid, transaction);
+  delete transaction;
+}
+
 // helper function to delete
 void DeleteHelper(BPlusTree<GenericKey<8>, RID, GenericComparator<8>> *tree, const std::vector<int64_t> &remove_keys,
                   __attribute__((unused)) uint64_t thread_itr = 0) {
@@ -108,7 +123,7 @@ TEST(BPlusTreeConcurrentTest, InsertTest1) {
   auto *disk_manager = new DiskManager("test.db");
   BufferPoolManager *bpm = new BufferPoolManagerInstance(50, disk_manager);
   // create b+ tree
-  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", bpm, comparator);
+  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", bpm, comparator, 2, 3);
   // create and fetch header_page
   page_id_t page_id;
   auto header_page = bpm->NewPage(&page_id);
@@ -120,6 +135,10 @@ TEST(BPlusTreeConcurrentTest, InsertTest1) {
     keys.push_back(key);
   }
   LaunchParallelTest(2, InsertHelper, &tree, keys);
+
+  // auto rng = std::default_random_engine {};
+  // std::shuffle(std::begin(keys), std::end(keys), rng);
+  // InsertHelper(&tree, keys);
 
   std::vector<RID> rids;
   GenericKey<8> index_key;
@@ -159,7 +178,7 @@ TEST(BPlusTreeConcurrentTest, InsertTest2) {
   auto *disk_manager = new DiskManager("test.db");
   BufferPoolManager *bpm = new BufferPoolManagerInstance(50, disk_manager);
   // create b+ tree
-  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", bpm, comparator);
+  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", bpm, comparator, 3, 5);
   // create and fetch header_page
   page_id_t page_id;
   auto header_page = bpm->NewPage(&page_id);
@@ -211,7 +230,7 @@ TEST(BPlusTreeConcurrentTest, DeleteTest1) {
   auto *disk_manager = new DiskManager("test.db");
   BufferPoolManager *bpm = new BufferPoolManagerInstance(50, disk_manager);
   // create b+ tree
-  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", bpm, comparator);
+  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", bpm, comparator, 3, 5);
   GenericKey<8> index_key;
   // create and fetch header_page
   page_id_t page_id;
@@ -253,7 +272,7 @@ TEST(BPlusTreeConcurrentTest, DeleteTest2) {
   auto *disk_manager = new DiskManager("test.db");
   BufferPoolManager *bpm = new BufferPoolManagerInstance(50, disk_manager);
   // create b+ tree
-  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", bpm, comparator);
+  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", bpm, comparator, 3, 5);
   GenericKey<8> index_key;
   // create and fetch header_page
   page_id_t page_id;
@@ -296,7 +315,7 @@ TEST(BPlusTreeConcurrentTest, MixTest) {
   auto *disk_manager = new DiskManager("test.db");
   BufferPoolManager *bpm = new BufferPoolManagerInstance(50, disk_manager);
   // create b+ tree
-  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", bpm, comparator);
+  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", bpm, comparator, 3, 5);
   GenericKey<8> index_key;
 
   // create and fetch header_page

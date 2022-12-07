@@ -10,6 +10,8 @@
 //===----------------------------------------------------------------------===//
 #pragma once
 
+#include <deque>
+#include <memory>
 #include <queue>
 #include <string>
 #include <vector>
@@ -105,8 +107,9 @@ class BPlusTree {
   void CoalesceNonLeaf(const KeyType &key, InternalPage *internal_page, Transaction *transaction);
   auto GetIndex(Page *page, const KeyType &key) -> int;
   auto FindMinLeaf() -> page_id_t;
+  void ReleaseResources(std::shared_ptr<std::deque<bustub::Page *>> &page_set, page_id_t root_id);
 
-  std::mutex root_lock_;
+  ReaderWriterLatch root_latch_;
 };
 
 }  // namespace bustub
